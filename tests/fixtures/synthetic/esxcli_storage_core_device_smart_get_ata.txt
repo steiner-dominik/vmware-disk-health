@@ -1,0 +1,15 @@
+Parameter                     Value  Threshold  Worst
+----------------------------  -----  ---------  -----
+Health Status                 OK     N/A        N/A
+Media Wearout Indicator       N/A    N/A        N/A
+Write Error Count             0      0          0
+Read Error Count              0      0          0
+Power-on Hours                23065  0          0
+Power Cycle Count             16     20         100
+Reallocated Sector Count      0      10         100
+Raw Read Error Rate           76     44         64
+Drive Temperature             30     0          47
+Driver Rated Max Temperature  N/A    N/A        N/A
+Write Sectors TOT Count       N/A    N/A        N/A
+Read Sectors TOT Count        N/A    N/A        N/A
+Initial Bad Block Count       N/A    N/A        N/A

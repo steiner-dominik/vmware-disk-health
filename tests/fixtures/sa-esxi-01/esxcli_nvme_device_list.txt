@@ -1,0 +1,5 @@
+HBA Name  Status  Signature
+--------  ------  ---------
+vmhba0    Online  nvmeMgmt-nvmhba0
+vmhba1    Online  nvmeMgmt-nvmhba1
+vmhba4    Online  nvmeMgmt-nvmhba2

@@ -1,0 +1,130 @@
+{
+  "json_format_version": [1, 0],
+  "smartctl": {
+    "version": [7, 5],
+    "pre_release": false,
+    "svn_revision": "5714",
+    "platform_info": "x86_64-linux-8.0.3",
+    "build_info": "(local build)",
+    "argv": ["smartctl", "-j", "-x", "-d", "sat,auto", "/dev/disks/t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS"],
+    "drive_database_version": {"string": "7.5/5706"},
+    "exit_status": 0
+  },
+  "local_time": {"time_t": 1789501690, "asctime": "Tue Sep 15 19:48:10 2026 UTC"},
+  "device": {
+    "name": "/dev/disks/t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS",
+    "info_name": "/dev/disks/t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS [SAT]",
+    "type": "sat",
+    "protocol": "ATA"
+  },
+  "model_family": "Seagate Exos X20/X22",
+  "model_name": "ST20000NM007D-3DJ103",
+  "serial_number": "ZVTBWXYS",
+  "wwn": {"naa": 5, "oui": 3152, "id": 3882627884},
+  "firmware_version": "SN03",
+  "user_capacity": {"blocks": 39063650304, "bytes": 20000588955648},
+  "logical_block_size": 512,
+  "physical_block_size": 4096,
+  "rotation_rate": 7200,
+  "form_factor": {"ata_value": 2, "name": "3.5 inches"},
+  "trim": {"supported": false},
+  "in_smartctl_database": true,
+  "ata_version": {"string": "ACS-4 (minor revision not indicated)", "major_value": 4064, "minor_value": 65535},
+  "sata_version": {"string": "SATA 3.3", "value": 511},
+  "smart_support": {"available": true, "enabled": true},
+  "smart_status": {"passed": true},
+  "ata_smart_data": {
+    "offline_data_collection": {"status": {"value": 130, "string": "was completed without error", "passed": true}, "completion_seconds": 559},
+    "self_test": {"status": {"value": 0, "string": "completed without error", "passed": true}, "polling_minutes": {"short": 1, "extended": 1730, "conveyance": 2}}
+  },
+  "ata_smart_attributes": {
+    "revision": 10,
+    "table": [
+      {"id": 1, "name": "Raw_Read_Error_Rate", "value": 76, "worst": 64, "thresh": 44, "when_failed": "", "flags": {"value": 15, "string": "POSR-- ", "prefailure": true, "updated_online": true, "performance": true, "error_rate": true, "event_count": false, "auto_keep": false}, "raw": {"value": 41315910, "string": "0/41315910"}},
+      {"id": 3, "name": "Spin_Up_Time", "value": 91, "worst": 90, "thresh": 0, "when_failed": "", "flags": {"value": 3, "string": "PO---- ", "prefailure": true, "updated_online": true, "performance": false, "error_rate": false, "event_count": false, "auto_keep": false}, "raw": {"value": 0, "string": "0"}},
+      {"id": 4, "name": "Start_Stop_Count", "value": 100, "worst": 100, "thresh": 20, "when_failed": "", "flags": {"value": 50, "string": "-O--CK ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": true}, "raw": {"value": 16, "string": "16"}},
+      {"id": 5, "name": "Reallocated_Sector_Ct", "value": 100, "worst": 100, "thresh": 10, "when_failed": "", "flags": {"value": 51, "string": "PO--CK ", "prefailure": true, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": true}, "raw": {"value": 0, "string": "0"}},
+      {"id": 7, "name": "Seek_Error_Rate", "value": 86, "worst": 60, "thresh": 45, "when_failed": "", "flags": {"value": 15, "string": "POSR-- ", "prefailure": true, "updated_online": true, "performance": true, "error_rate": true, "event_count": false, "auto_keep": false}, "raw": {"value": 384739396, "string": "0/384739396"}},
+      {"id": 9, "name": "Power_On_Hours", "value": 74, "worst": 74, "thresh": 0, "when_failed": "", "flags": {"value": 50, "string": "-O--CK ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": true}, "raw": {"value": 23065, "string": "23065"}},
+      {"id": 10, "name": "Spin_Retry_Count", "value": 100, "worst": 100, "thresh": 97, "when_failed": "", "flags": {"value": 19, "string": "PO--C- ", "prefailure": true, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": false}, "raw": {"value": 0, "string": "0"}},
+      {"id": 12, "name": "Power_Cycle_Count", "value": 100, "worst": 100, "thresh": 20, "when_failed": "", "flags": {"value": 50, "string": "-O--CK ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": true}, "raw": {"value": 16, "string": "16"}},
+      {"id": 18, "name": "Head_Health", "value": 100, "worst": 100, "thresh": 50, "when_failed": "", "flags": {"value": 11, "string": "PO-R-- ", "prefailure": true, "updated_online": true, "performance": false, "error_rate": true, "event_count": false, "auto_keep": false}, "raw": {"value": 0, "string": "0"}},
+      {"id": 187, "name": "Reported_Uncorrect", "value": 100, "worst": 100, "thresh": 0, "when_failed": "", "flags": {"value": 50, "string": "-O--CK ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": true}, "raw": {"value": 0, "string": "0"}},
+      {"id": 188, "name": "Command_Timeout", "value": 100, "worst": 100, "thresh": 0, "when_failed": "", "flags": {"value": 50, "string": "-O--CK ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": true}, "raw": {"value": 0, "string": "0 0 0"}},
+      {"id": 190, "name": "Airflow_Temperature_Cel", "value": 70, "worst": 53, "thresh": 0, "when_failed": "", "flags": {"value": 34, "string": "-O---K ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": false, "auto_keep": true}, "raw": {"value": 790167582, "string": "30 (Min/Max 25/47)"}},
+      {"id": 192, "name": "Power-Off_Retract_Count", "value": 100, "worst": 100, "thresh": 0, "when_failed": "", "flags": {"value": 50, "string": "-O--CK ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": true}, "raw": {"value": 8, "string": "8"}},
+      {"id": 193, "name": "Load_Cycle_Count", "value": 38, "worst": 38, "thresh": 0, "when_failed": "", "flags": {"value": 50, "string": "-O--CK ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": true}, "raw": {"value": 125299, "string": "125299"}},
+      {"id": 194, "name": "Temperature_Celsius", "value": 30, "worst": 47, "thresh": 0, "when_failed": "", "flags": {"value": 34, "string": "-O---K ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": false, "auto_keep": true}, "raw": {"value": 38654705694, "string": "30 (0 9 0 0 0)"}},
+      {"id": 197, "name": "Current_Pending_Sector", "value": 100, "worst": 100, "thresh": 0, "when_failed": "", "flags": {"value": 18, "string": "-O--C- ", "prefailure": false, "updated_online": true, "performance": false, "error_rate": false, "event_count": true, "auto_keep": false}, "raw": {"value": 0, "string": "0"}},
+      {"id": 198, "name": "Offline_Uncorrectable", "value": 100, "worst": 100, "thresh": 0, "when_failed": "", "flags": {"value": 16, "string": "----C- ", "prefailure": false, "updated_online": false, "performance": false, "error_rate": false, "event_count": true, "auto_keep": false}, "raw": {"value": 0, "string": "0"}},
+      {"id": 199, "name": "UDMA_CRC_Error_Count", "value": 200, "worst": 200, "thresh": 0, "when_failed": "", "flags": {"value": 62, "string": "-OSRCK ", "prefailure": false, "updated_online": true, "performance": true, "error_rate": true, "event_count": true, "auto_keep": true}, "raw": {"value": 0, "string": "0"}},
+      {"id": 200, "name": "Pressure_Limit", "value": 100, "worst": 100, "thresh": 1, "when_failed": "", "flags": {"value": 35, "string": "PO---K ", "prefailure": true, "updated_online": true, "performance": false, "error_rate": false, "event_count": false, "auto_keep": true}, "raw": {"value": 0, "string": "0"}},
+      {"id": 240, "name": "Head_Flying_Hours", "value": 100, "worst": 100, "thresh": 0, "when_failed": "", "flags": {"value": 0, "string": "------ ", "prefailure": false, "updated_online": false, "performance": false, "error_rate": false, "event_count": false, "auto_keep": false}, "raw": {"value": 3851314354196358, "string": "3974h+14m+56.704s"}},
+      {"id": 241, "name": "Total_LBAs_Written", "value": 100, "worst": 253, "thresh": 0, "when_failed": "", "flags": {"value": 0, "string": "------ ", "prefailure": false, "updated_online": false, "performance": false, "error_rate": false, "event_count": false, "auto_keep": false}, "raw": {"value": 175524780300, "string": "175524780300"}},
+      {"id": 242, "name": "Total_LBAs_Read", "value": 100, "worst": 253, "thresh": 0, "when_failed": "", "flags": {"value": 0, "string": "------ ", "prefailure": false, "updated_online": false, "performance": false, "error_rate": false, "event_count": false, "auto_keep": false}, "raw": {"value": 704888298797, "string": "704888298797"}}
+    ]
+  },
+  "spare_available": {"current_percent": 100, "threshold_percent": 10},
+  "power_on_time": {"hours": 23065},
+  "power_cycle_count": 16,
+  "temperature": {
+    "current": 30, "power_cycle_min": 25, "power_cycle_max": 46, "lifetime_min": 9, "lifetime_max": 46,
+    "op_limit_min": 5, "op_limit_max": 60, "limit_min": 5, "limit_max": 60,
+    "lifetime_over_limit_minutes": 0, "lifetime_under_limit_minutes": 0
+  },
+  "ata_smart_error_log": {"extended": {"revision": 1, "sectors": 5, "count": 0}},
+  "ata_smart_self_test_log": {"extended": {"revision": 1, "sectors": 1, "count": 0}},
+  "ata_sct_status": {
+    "format_version": 3, "sct_version": 522, "device_state": {"value": 0, "string": "Active"},
+    "temperature": {"current": 30, "power_cycle_min": 25, "power_cycle_max": 46, "lifetime_min": 9, "lifetime_max": 46, "under_limit_count": 0, "over_limit_count": 75},
+    "smart_status": {"passed": true}
+  },
+  "ata_sct_temperature_history": {
+    "version": 2, "sampling_period_minutes": 4, "logging_interval_minutes": 59,
+    "temperature": {"op_limit_min": 10, "op_limit_max": 40, "limit_min": 5, "limit_max": 60},
+    "size": 128, "index": 14,
+    "table": [27, 28, 28, 28, 28, 28, 28, 27]
+  },
+  "ata_device_statistics": {
+    "pages": [
+      {"number": 1, "name": "General Statistics", "revision": 1, "table": [
+        {"offset": 8, "name": "Lifetime Power-On Resets", "size": 4, "value": 16, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 16, "name": "Power-on Hours", "size": 4, "value": 23065, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 24, "name": "Logical Sectors Written", "size": 6, "value": 175524780300, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 32, "name": "Number of Write Commands", "size": 6, "value": 395773916, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 40, "name": "Logical Sectors Read", "size": 6, "value": 704888185466, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 48, "name": "Number of Read Commands", "size": 6, "value": 1313564137, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 56, "name": "Date and Time TimeStamp", "size": 6, "flags": {"value": 128, "string": "---- ", "valid": false, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}}
+      ]},
+      {"number": 3, "name": "Rotating Media Statistics", "revision": 1, "table": [
+        {"offset": 8, "name": "Spindle Motor Power-on Hours", "size": 4, "value": 23040, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 16, "name": "Head Flying Hours", "size": 4, "value": 3973, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 24, "name": "Head Load Events", "size": 4, "value": 125299, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 32, "name": "Number of Reallocated Logical Sectors", "size": 4, "value": 0, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 40, "name": "Read Recovery Attempts", "size": 4, "value": 0, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 48, "name": "Number of Mechanical Start Failures", "size": 4, "value": 0, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 56, "name": "Number of Realloc. Candidate Logical Sectors", "size": 4, "value": 0, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 64, "name": "Number of High Priority Unload Events", "size": 4, "value": 8, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}}
+      ]},
+      {"number": 4, "name": "General Errors Statistics", "revision": 1, "table": [
+        {"offset": 8, "name": "Number of Reported Uncorrectable Errors", "size": 4, "value": 0, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 16, "name": "Resets Between Cmd Acceptance and Completion", "size": 4, "value": 0, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 24, "name": "Physical Element Status Changed", "size": 4, "value": 0, "flags": {"value": 208, "string": "V-D- ", "valid": true, "normalized": false, "supports_dsn": true, "monitored_condition_met": false}}
+      ]},
+      {"number": 5, "name": "Temperature Statistics", "revision": 1, "table": [
+        {"offset": 8, "name": "Current Temperature", "size": 1, "value": 30, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 32, "name": "Highest Temperature", "size": 1, "value": 46, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 40, "name": "Lowest Temperature", "size": 1, "value": 9, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 88, "name": "Specified Maximum Operating Temperature", "size": 1, "value": 60, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 104, "name": "Specified Minimum Operating Temperature", "size": 1, "value": 5, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}}
+      ]},
+      {"number": 6, "name": "Transport Statistics", "revision": 1, "table": [
+        {"offset": 8, "name": "Number of Hardware Resets", "size": 4, "value": 127, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 16, "name": "Number of ASR Events", "size": 4, "value": 85, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}},
+        {"offset": 24, "name": "Number of Interface CRC Errors", "size": 4, "value": 0, "flags": {"value": 192, "string": "V--- ", "valid": true, "normalized": false, "supports_dsn": false, "monitored_condition_met": false}}
+      ]}
+    ]
+  },
+  "ata_pending_defects_log": {"size": 65535, "count": 0},
+  "seagate_farm_log": {"supported": true}
+}

@@ -1,0 +1,2 @@
+VMware ESXi 8.0.3 build-25205845
+VMware ESXi 8.0 Update 3

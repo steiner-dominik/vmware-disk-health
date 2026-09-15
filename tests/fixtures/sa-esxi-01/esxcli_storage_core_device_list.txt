@@ -1,0 +1,351 @@
+t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBXN1D
+   Display Name: Local ATA Disk (t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBXN1D)
+   Has Settable Display Name: true
+   Size: 19074048
+   Device Type: Direct-Access
+   Multipath Plugin: HPP
+   Devfs Path: /vmfs/devices/disks/t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBXN1D
+   Vendor: ATA
+   Model: ST20000NM007D-3D
+   Revision: SN03
+   SCSI Level: 5
+   Is Pseudo: false
+   Status: on
+   Is RDM Capable: false
+   Is Local: true
+   Is Removable: false
+   Is SSD: false
+   Is VVOL PE: false
+   Is Offline: false
+   Is Perennially Reserved: false
+   Queue Full Sample Size: 0
+   Queue Full Threshold: 0
+   Thin Provisioning Status: unknown
+   Attached Filters:
+   VAAI Status: unsupported
+   Other UIDs: vml.01000000002020202020202020202020205a565442584e3144535432303030
+   Is Shared Clusterwide: false
+   Is SAS: false
+   Is USB: false
+   Is Boot Device: false
+   Device Max Queue Depth: 31
+   No of outstanding IOs with competing worlds: 31
+   Drive Type: unknown
+   RAID Level: unknown
+   Number of Physical Drives: unknown
+   Protection Enabled: false
+   PI Activated: false
+   PI Type: 0
+   PI Protection Mask: NO PROTECTION
+   Supported Guard Types: NO GUARD SUPPORT
+   DIX Enabled: false
+   DIX Guard Type: NO GUARD SUPPORT
+   Emulated DIX/DIF Enabled: false
+
+mpx.vmhba32:C0:T0:L0
+   Display Name: Local USB CD-ROM (mpx.vmhba32:C0:T0:L0)
+   Has Settable Display Name: false
+   Size: 0
+   Device Type: CD-ROM
+   Multipath Plugin: NMP
+   Devfs Path: /vmfs/devices/cdrom/mpx.vmhba32:C0:T0:L0
+   Vendor: PiKVM
+   Model: PiKVM Composite
+   Revision: 0100
+   SCSI Level: 2
+   Is Pseudo: false
+   Status: on
+   Is RDM Capable: false
+   Is Local: true
+   Is Removable: true
+   Is SSD: false
+   Is VVOL PE: false
+   Is Offline: false
+   Is Perennially Reserved: false
+   Queue Full Sample Size: 0
+   Queue Full Threshold: 0
+   Thin Provisioning Status: unknown
+   Attached Filters:
+   VAAI Status: unsupported
+   Other UIDs: vml.0005000000766d68626133323a303a30
+   Is Shared Clusterwide: false
+   Is SAS: false
+   Is USB: true
+   Is Boot Device: false
+   Device Max Queue Depth: 1
+   No of outstanding IOs with competing worlds: 1
+   Drive Type: unknown
+   RAID Level: unknown
+   Number of Physical Drives: unknown
+   Protection Enabled: false
+   PI Activated: false
+   PI Type: 0
+   PI Protection Mask: NO PROTECTION
+   Supported Guard Types: NO GUARD SUPPORT
+   DIX Enabled: false
+   DIX Guard Type: NO GUARD SUPPORT
+   Emulated DIX/DIF Enabled: false
+
+t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____
+   Display Name: Local ATA Disk (t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____)
+   Has Settable Display Name: true
+   Size: 114473
+   Device Type: Direct-Access
+   Multipath Plugin: HPP
+   Devfs Path: /vmfs/devices/disks/t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____
+   Vendor: ATA
+   Model: Samsung SSD 750
+   Revision: 1B6Q
+   SCSI Level: 5
+   Is Pseudo: false
+   Status: on
+   Is RDM Capable: false
+   Is Local: true
+   Is Removable: false
+   Is SSD: true
+   Is VVOL PE: false
+   Is Offline: false
+   Is Perennially Reserved: false
+   Queue Full Sample Size: 0
+   Queue Full Threshold: 0
+   Thin Provisioning Status: yes
+   Attached Filters:
+   VAAI Status: unsupported
+   Other UIDs: vml.0100000000533346324e57424842353639393750202020202053616d73756e
+   Is Shared Clusterwide: false
+   Is SAS: false
+   Is USB: false
+   Is Boot Device: true
+   Device Max Queue Depth: 31
+   No of outstanding IOs with competing worlds: 31
+   Drive Type: unknown
+   RAID Level: unknown
+   Number of Physical Drives: unknown
+   Protection Enabled: false
+   PI Activated: false
+   PI Type: 0
+   PI Protection Mask: NO PROTECTION
+   Supported Guard Types: NO GUARD SUPPORT
+   DIX Enabled: false
+   DIX Guard Type: NO GUARD SUPPORT
+   Emulated DIX/DIF Enabled: false
+
+t10.NVMe____WD_BLACK_SN850X_4000GB__________________243E584E8B441B00
+   Display Name: Local NVMe Disk (t10.NVMe____WD_BLACK_SN850X_4000GB__________________243E584E8B441B00)
+   Has Settable Display Name: true
+   Size: 3815447
+   Device Type: Direct-Access
+   Multipath Plugin: HPP
+   Devfs Path: /vmfs/devices/disks/t10.NVMe____WD_BLACK_SN850X_4000GB__________________243E584E8B441B00
+   Vendor: NVMe
+   Model: WD_BLACK SN850X 4000GB
+   Revision: 624361WD
+   SCSI Level: 0
+   Is Pseudo: false
+   Status: on
+   Is RDM Capable: false
+   Is Local: true
+   Is Removable: false
+   Is SSD: true
+   Is VVOL PE: false
+   Is Offline: false
+   Is Perennially Reserved: false
+   Queue Full Sample Size: 0
+   Queue Full Threshold: 0
+   Thin Provisioning Status: no
+   Attached Filters:
+   VAAI Status: unsupported
+   Other UIDs: vml.05396365541724241da62f5f131bcc3db23aee9decf79b8a35b246c099907564e1
+   Is Shared Clusterwide: false
+   Is SAS: false
+   Is USB: false
+   Is Boot Device: false
+   Device Max Queue Depth: 1023
+   No of outstanding IOs with competing worlds: 32
+   Drive Type: physical
+   RAID Level: NA
+   Number of Physical Drives: 1
+   Protection Enabled: false
+   PI Activated: false
+   PI Type: 0
+   PI Protection Mask: NO PROTECTION
+   Supported Guard Types: NO GUARD SUPPORT
+   DIX Enabled: false
+   DIX Guard Type: NO GUARD SUPPORT
+   Emulated DIX/DIF Enabled: false
+
+t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00
+   Display Name: Local NVMe Disk (t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00)
+   Has Settable Display Name: true
+   Size: 3815447
+   Device Type: Direct-Access
+   Multipath Plugin: HPP
+   Devfs Path: /vmfs/devices/disks/t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00
+   Vendor: NVMe
+   Model: WD_BLACK SN850X 4000GB
+   Revision: 624361WD
+   SCSI Level: 0
+   Is Pseudo: false
+   Status: on
+   Is RDM Capable: false
+   Is Local: true
+   Is Removable: false
+   Is SSD: true
+   Is VVOL PE: false
+   Is Offline: false
+   Is Perennially Reserved: false
+   Queue Full Sample Size: 0
+   Queue Full Threshold: 0
+   Thin Provisioning Status: no
+   Attached Filters:
+   VAAI Status: unsupported
+   Other UIDs: vml.0536f1a0f3cc7d5d77de3bda21c3bbca59d133d0bfa28293519f5ffe641ecf0921
+   Is Shared Clusterwide: false
+   Is SAS: false
+   Is USB: false
+   Is Boot Device: false
+   Device Max Queue Depth: 1023
+   No of outstanding IOs with competing worlds: 32
+   Drive Type: physical
+   RAID Level: NA
+   Number of Physical Drives: 1
+   Protection Enabled: false
+   PI Activated: false
+   PI Type: 0
+   PI Protection Mask: NO PROTECTION
+   Supported Guard Types: NO GUARD SUPPORT
+   DIX Enabled: false
+   DIX Guard Type: NO GUARD SUPPORT
+   Emulated DIX/DIF Enabled: false
+
+t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS
+   Display Name: Local ATA Disk (t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS)
+   Has Settable Display Name: true
+   Size: 19074048
+   Device Type: Direct-Access
+   Multipath Plugin: HPP
+   Devfs Path: /vmfs/devices/disks/t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS
+   Vendor: ATA
+   Model: ST20000NM007D-3D
+   Revision: SN03
+   SCSI Level: 5
+   Is Pseudo: false
+   Status: on
+   Is RDM Capable: false
+   Is Local: true
+   Is Removable: false
+   Is SSD: false
+   Is VVOL PE: false
+   Is Offline: false
+   Is Perennially Reserved: false
+   Queue Full Sample Size: 0
+   Queue Full Threshold: 0
+   Thin Provisioning Status: unknown
+   Attached Filters:
+   VAAI Status: unsupported
+   Other UIDs: vml.01000000002020202020202020202020205a56544257585953535432303030
+   Is Shared Clusterwide: false
+   Is SAS: false
+   Is USB: false
+   Is Boot Device: false
+   Device Max Queue Depth: 31
+   No of outstanding IOs with competing worlds: 31
+   Drive Type: unknown
+   RAID Level: unknown
+   Number of Physical Drives: unknown
+   Protection Enabled: false
+   PI Activated: false
+   PI Type: 0
+   PI Protection Mask: NO PROTECTION
+   Supported Guard Types: NO GUARD SUPPORT
+   DIX Enabled: false
+   DIX Guard Type: NO GUARD SUPPORT
+   Emulated DIX/DIF Enabled: false
+
+t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTC3WC6
+   Display Name: Local ATA Disk (t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTC3WC6)
+   Has Settable Display Name: true
+   Size: 19074048
+   Device Type: Direct-Access
+   Multipath Plugin: HPP
+   Devfs Path: /vmfs/devices/disks/t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTC3WC6
+   Vendor: ATA
+   Model: ST20000NM007D-3D
+   Revision: SN03
+   SCSI Level: 5
+   Is Pseudo: false
+   Status: on
+   Is RDM Capable: false
+   Is Local: true
+   Is Removable: false
+   Is SSD: false
+   Is VVOL PE: false
+   Is Offline: false
+   Is Perennially Reserved: false
+   Queue Full Sample Size: 0
+   Queue Full Threshold: 0
+   Thin Provisioning Status: unknown
+   Attached Filters:
+   VAAI Status: unsupported
+   Other UIDs: vml.01000000002020202020202020202020205a56544333574336535432303030
+   Is Shared Clusterwide: false
+   Is SAS: false
+   Is USB: false
+   Is Boot Device: false
+   Device Max Queue Depth: 31
+   No of outstanding IOs with competing worlds: 31
+   Drive Type: unknown
+   RAID Level: unknown
+   Number of Physical Drives: unknown
+   Protection Enabled: false
+   PI Activated: false
+   PI Type: 0
+   PI Protection Mask: NO PROTECTION
+   Supported Guard Types: NO GUARD SUPPORT
+   DIX Enabled: false
+   DIX Guard Type: NO GUARD SUPPORT
+   Emulated DIX/DIF Enabled: false
+
+t10.NVMe____EO000750KWTXC___________________________00014935E3E4D25C
+   Display Name: Local NVMe Disk (t10.NVMe____EO000750KWTXC___________________________00014935E3E4D25C)
+   Has Settable Display Name: true
+   Size: 715404
+   Device Type: Direct-Access
+   Multipath Plugin: HPP
+   Devfs Path: /vmfs/devices/disks/t10.NVMe____EO000750KWTXC___________________________00014935E3E4D25C
+   Vendor: NVMe
+   Model: EO000750KWTXC
+   Revision: 4ICSHPK4
+   SCSI Level: 0
+   Is Pseudo: false
+   Status: on
+   Is RDM Capable: false
+   Is Local: true
+   Is Removable: false
+   Is SSD: true
+   Is VVOL PE: false
+   Is Offline: false
+   Is Perennially Reserved: false
+   Queue Full Sample Size: 0
+   Queue Full Threshold: 0
+   Thin Provisioning Status: no
+   Attached Filters:
+   VAAI Status: unsupported
+   Other UIDs: vml.05ef0e5b984436b6645821b501fa476c42cf97ce61100b04c4f11d3ffb7704e3a3
+   Is Shared Clusterwide: false
+   Is SAS: false
+   Is USB: false
+   Is Boot Device: false
+   Device Max Queue Depth: 1023
+   No of outstanding IOs with competing worlds: 32
+   Drive Type: physical
+   RAID Level: NA
+   Number of Physical Drives: 1
+   Protection Enabled: false
+   PI Activated: false
+   PI Type: 0
+   PI Protection Mask: NO PROTECTION
+   Supported Guard Types: NO GUARD SUPPORT
+   DIX Enabled: false
+   DIX Guard Type: NO GUARD SUPPORT
+   Emulated DIX/DIF Enabled: false

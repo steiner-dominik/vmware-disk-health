@@ -1,0 +1,30 @@
+SMART And Health Info:
+   Available Spare Space Below Threshold: false
+   Temperature Warning: false
+   NVM Subsystem Reliability Degradation: false
+   Read Only Mode: false
+   Volatile Memory Backup Device Failure: false
+   Composite Temperature: 312 K
+   Available Spare: 100 %
+   Available Spare Threshold: 0 %
+   Percentage Used: 0 %
+   Data Units Read: 0x12f7ca12
+   Data Units Written: 0x52c46fc1
+   Host Read Commands: 0x481a96c95
+   Host Write Commands: 0xca40e8ef2
+   Controller Busy Time: 0x270f
+   Power Cycles: 0x2f
+   Power On Hours: 0x63c6
+   Unsafe Shutdowns: 0x20
+   Media Errors: 0x0
+   Number of Error Info Log Entries: 0x0
+   Warning Composite Temperature Time: 0 Mins
+   Critical Composite Temperature Time: 0 Mins
+   Temperature Sensor 1: 0 K
+   Temperature Sensor 2: 0 K
+   Temperature Sensor 3: 0 K
+   Temperature Sensor 4: 0 K
+   Temperature Sensor 5: 0 K
+   Temperature Sensor 6: 0 K
+   Temperature Sensor 7: 0 K
+   Temperature Sensor 8: 0 K

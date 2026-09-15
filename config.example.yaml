@@ -1,0 +1,36 @@
+# VMware Disk Health - standalone configuration.
+# The Home Assistant app uses the same structure through its options page.
+
+hosts:
+  - name: sa-esxi-01
+    address: sa-esxi-01.lan
+    username: root
+    # Leave empty to use the app's SSH key (see `vmware-disk-health pubkey`).
+    password: ""
+    # auto: use smartctl if the community VIB is installed, none: never.
+    smartctl_path: auto
+    # Glob patterns on device id, serial or model.
+    exclude: []
+  - name: sc-esxi-01
+    address: sc-esxi-01.lan
+
+poll_interval_minutes: 60
+retention_raw_days: 90
+
+thresholds:
+  life_remaining_warn_pct: 20
+  life_remaining_crit_pct: 10
+  temp_hdd_warn_c: 50
+  temp_hdd_crit_c: 60
+  temp_ssd_warn_c: 60
+  temp_ssd_crit_c: 70
+  temp_nvme_warn_c: 70
+  temp_nvme_crit_c: 80
+  use_drive_temp_limit: true
+
+disk_overrides: []
+#  - match: "S3F2NWBHB56997P"   # serial, device id or model, globs allowed
+#    name: "Boot SSD"
+#    life_remaining_warn_pct: 30
+#  - match: "*PiKVM*"
+#    ignore: true

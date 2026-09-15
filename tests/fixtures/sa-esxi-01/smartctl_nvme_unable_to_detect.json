@@ -1,0 +1,33 @@
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      5
+    ],
+    "pre_release": false,
+    "svn_revision": "5714",
+    "platform_info": "x86_64-linux-8.0.3",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-j",
+      "-x",
+      "/dev/disks/t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00"
+    ],
+    "messages": [
+      {
+        "string": "/dev/disks/t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00: Unable to detect device type",
+        "severity": "error"
+      }
+    ],
+    "exit_status": 1
+  },
+  "local_time": {
+    "time_t": 1789501725,
+    "asctime": "Tue Sep 15 19:48:45 2026 UTC"
+  }
+}
