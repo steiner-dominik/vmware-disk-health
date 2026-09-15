@@ -18,13 +18,13 @@ def host_result(ts: float, status: Severity = Severity.OK, temperature: float = 
 
 def test_save_tracks_latest_and_status_changes(tmp_path):
     storage = Storage(tmp_path / "h.db")
-    first = storage.save(host_result(1000))
-    assert [(c.old, c.new) for c in first] == [(None, Severity.OK)]
+    assert storage.save(host_result(1000)) == []  # a new, healthy disk is not an event
     assert storage.save(host_result(2000)) == []
     changed = storage.save(host_result(3000, Severity.WARNING, reallocated=3))
     assert [(c.old, c.new) for c in changed] == [(Severity.OK, Severity.WARNING)]
     assert storage.previous_reading("t10.ATA_____X").reallocated_sectors == 3
-    assert len(storage.events()) == 2
+    [event] = storage.events()
+    assert event["findings"][0]["code"] == "t"
     assert [row["ts"] for row in storage.history("t10.ATA_____X")] == [1000, 2000, 3000]
 
 
@@ -49,3 +49,15 @@ def test_rollup_folds_old_samples_into_days(tmp_path):
     day = history[0]
     assert (day["temperature_min"], day["temperature_max"], day["temperature_c"]) == (20, 40, 30)
     assert history[1]["temperature_c"] == 35
+
+
+def test_baseline_is_the_oldest_sample_in_the_window(tmp_path):
+    storage = Storage(tmp_path / "h.db")
+    storage.save(host_result(1 * DAY, reallocated=1))
+    storage.save(host_result(5 * DAY, reallocated=2))
+    storage.save(host_result(9 * DAY, reallocated=4))
+    assert storage.baseline_reading("t10.ATA_____X", since=4 * DAY).reallocated_sectors == 2
+    # Counters stored as REAL come back as integers, even when not whole.
+    storage.db.execute("UPDATE samples SET reallocated_sectors = 2.4 WHERE ts = ?", (5 * DAY,))
+    assert storage.baseline_reading("t10.ATA_____X", since=4 * DAY).reallocated_sectors == 2
+    assert storage.baseline_reading("unseen", since=0) is None

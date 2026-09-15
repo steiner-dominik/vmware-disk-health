@@ -99,6 +99,11 @@ class Settings(BaseModel):
     disk_overrides: list[DiskOverride] = Field(default_factory=list)
     data_dir: Path = Field(default_factory=default_data_dir)
     log_level: str = "info"
+    # auto follows the browser; each browser can still switch in the UI.
+    language: str = "auto"
+    # Set when loaded from Home Assistant's options.json: the UI is then only
+    # reachable through ingress, which authenticates every request.
+    ha_mode: bool = Field(default=False, exclude=True)
 
     def override_for(self, info: DiskInfo) -> DiskOverride | None:
         return next((o for o in self.disk_overrides if o.matches(info)), None)
@@ -135,7 +140,8 @@ def load_settings(path: Path | None = None) -> Settings:
         if candidate and candidate.is_file():
             text = candidate.read_text()
             raw = json.loads(text) if candidate.suffix == ".json" else yaml.safe_load(text) or {}
-            return Settings(**raw)
+            raw.pop("ha_mode", None)
+            return Settings(**raw, ha_mode=candidate == HA_OPTIONS_PATH)
     if path:
         raise FileNotFoundError(path)
     raise FileNotFoundError("no configuration found (config.yaml, /data/options.json or $VDH_CONFIG)")

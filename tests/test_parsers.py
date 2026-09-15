@@ -270,3 +270,9 @@ def test_unexpected_json_is_rejected():
         esxcli.decode_json('"just a string"', Shape.TABLE)
     with pytest.raises(ValueError):
         esxcli.decode_json("Unable to find requested formatter: json", Shape.RECORD)
+
+
+def test_empty_output_is_not_data():
+    record = esxcli.decode_text("", Shape.RECORD)
+    assert not esxcli.has_values(record)
+    assert esxcli.parse_nvme_smart_log(record).health_passed is None

@@ -11,8 +11,10 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "asyncssh>=2.24.0",
+    "fastapi>=0.141.1",
     "pydantic>=2.13.5",
     "pyyaml>=6.0.3",
+    "uvicorn>=0.53.0",
 ]
 
 [project.scripts]
@@ -24,6 +26,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.1.1",
     "ruff>=0.16.7",
 ]

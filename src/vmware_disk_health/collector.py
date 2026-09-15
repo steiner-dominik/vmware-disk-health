@@ -31,7 +31,8 @@ PER_HOST_CONCURRENCY = 3
 ESXCLI_JSON = "esxcli --debug --formatter=json"
 
 Connect = Callable[[HostConfig], Awaitable[Transport]]
-PreviousReading = Callable[[str], Reading | None]
+# Reading of a disk (by key) to detect increasing error counters against.
+Baseline = Callable[[str], Reading | None]
 
 
 class CommandFailed(Exception):
@@ -150,7 +151,7 @@ class HostCollector:
             result.errors.append("could not map NVMe device to its adapter")
         else:
             record = await self.esxcli(f"nvme device log smart get -A {shlex.quote(disk.nvme_adapter)}", Shape.RECORD)
-            if record:
+            if esxcli.has_values(record):
                 readings.append(esxcli.parse_nvme_smart_log(record))
                 result.sources.append("esxcli-nvme")
                 result.raw["esxcli_nvme"] = record
@@ -184,7 +185,7 @@ class HostCollector:
         result.reading = merged
         return result
 
-    async def collect(self, previous: PreviousReading) -> HostResult:
+    async def collect(self, baseline: Baseline) -> HostResult:
         started = time.time()
         host_result = HostResult(name=self.host.name, address=self.host.address, collected_at=started)
         await self.detect(host_result)
@@ -192,19 +193,19 @@ class HostCollector:
         host_result.smartctl_path = await self.find_smartctl()
         results = await asyncio.gather(*(self.collect_disk(d, host_result.smartctl_path) for d in disks))
         for result in results:
-            evaluate(result, self.settings.thresholds_for(result.info), previous(result.key))
+            evaluate(result, self.settings.thresholds_for(result.info), baseline(result.key))
         host_result.disks = list(results)
         host_result.ok = True
         host_result.duration_s = round(time.time() - started, 2)
         return host_result
 
 
-async def collect_host(host: HostConfig, settings: Settings, connect: Connect, previous: PreviousReading) -> HostResult:
+async def collect_host(host: HostConfig, settings: Settings, connect: Connect, baseline: Baseline) -> HostResult:
     started = time.time()
     transport: Transport | None = None
     try:
         transport = await connect(host)
-        return await HostCollector(host, transport, settings).collect(previous)
+        return await HostCollector(host, transport, settings).collect(baseline)
     except Exception as exc:  # noqa: BLE001 - one broken host must never stop the others
         log.warning("%s: collection failed: %s", host.name, exc)
         return HostResult(
@@ -223,6 +224,6 @@ async def collect_host(host: HostConfig, settings: Settings, connect: Connect, p
                 pass
 
 
-async def collect_all(settings: Settings, connect: Connect, previous: PreviousReading) -> list[HostResult]:
+async def collect_all(settings: Settings, connect: Connect, baseline: Baseline) -> list[HostResult]:
     hosts = [h for h in settings.hosts if h.enabled]
-    return list(await asyncio.gather(*(collect_host(h, settings, connect, previous) for h in hosts)))
+    return list(await asyncio.gather(*(collect_host(h, settings, connect, baseline) for h in hosts)))

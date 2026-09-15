@@ -4,8 +4,9 @@ SMART and SSD health monitoring for VMware ESXi hosts: wear, data written,
 temperatures and error counters of every local SATA and NVMe disk, with
 history and alerting. Runs standalone in Docker or as a Home Assistant app.
 
-> **Status:** early development. The collector and command line work; the web
-> UI, MQTT discovery, alerts and container image are next.
+> **Status:** early development. Collector, history, web UI, JSON API and
+> Prometheus metrics work; MQTT discovery for Home Assistant, notifications and
+> the container image are next.
 
 ## How it works
 
@@ -35,7 +36,8 @@ parsing the regular text output.
 uv sync
 cp config.example.yaml config.yaml   # add your hosts
 uv run vmware-disk-health pubkey      # authorize this key on each host
-uv run vmware-disk-health collect --no-store
+uv run vmware-disk-health collect --no-store   # one-off check in the terminal
+uv run vmware-disk-health serve       # web UI on http://localhost:8080
 ```
 
 The SSH key is generated on first use in `data/ssh/`. Each host's key is
@@ -48,6 +50,36 @@ Shell). Authorize the key as root:
 ```bash
 echo 'ssh-ed25519 AAAA... vmware-disk-health' >> /etc/ssh/keys-root/authorized_keys
 ```
+
+## Web UI
+
+- **Overview:** status counts, disks that need attention, and one table per
+  host with temperature, remaining endurance, data written and power-on time.
+- **Disk page:** findings, a projection of when an SSD wears out, history
+  charts (temperature, data written per day, endurance, error counters) for
+  7 days up to the full history, and the raw SMART data.
+- **Events:** every status change.
+- **Setup:** the SSH key to authorize, a connection test per host, and the
+  active thresholds.
+
+English and German; light, dark or following the system.
+
+The standalone web UI has no login. Run it on a trusted network or behind a
+reverse proxy with authentication. In Home Assistant the UI is only reachable
+through ingress, which handles authentication.
+
+## API
+
+| Endpoint | |
+|---|---|
+| `GET /api/state` | hosts, disk summaries, status counts |
+| `GET /api/disks/{device id}` | one disk: readings, findings, projections, raw data |
+| `GET /api/disks/{device id}/history?days=90` | samples (`days=0`: everything) |
+| `GET /api/events` | status changes |
+| `POST /api/poll` | collect now |
+| `POST /api/hosts/{name}/test` | test the SSH connection |
+| `GET /metrics` | Prometheus metrics (`vmware_disk_health_*`) |
+| `GET /healthz` | 200 while the scheduler runs |
 
 ## Development
 

@@ -32,6 +32,7 @@ class Finding(BaseModel):
     severity: Severity
     message: str
     value: float | int | str | None = None
+    limit: float | None = None
 
 
 class DiskInfo(BaseModel):

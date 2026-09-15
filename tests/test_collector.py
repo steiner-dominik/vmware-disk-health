@@ -51,14 +51,14 @@ def sa_esxi_01(*, json: bool, smartctl: bool) -> dict:
     return responses
 
 
-def collect(responses: dict, host: HostConfig | None = None, previous=lambda key: None):
+def collect(responses: dict, host: HostConfig | None = None, baseline=lambda key: None):
     host = host or HostConfig(name="sa-esxi-01", address="10.0.0.1")
     transport = FixtureTransport(responses)
 
     async def connect(_host):
         return transport
 
-    result = asyncio.run(collect_host(host, Settings(hosts=[host], data_dir="/tmp/unused"), connect, previous))
+    result = asyncio.run(collect_host(host, Settings(hosts=[host], data_dir="/tmp/unused"), connect, baseline))
     return result, {d.info.device_id: d for d in result.disks}, transport
 
 
@@ -153,10 +153,10 @@ def test_evaluate_thresholds():
     assert evaluate(_disk(DiskKind.SSD, life_used_pct=95), t).status is Severity.CRITICAL
     assert evaluate(_disk(DiskKind.HDD, pending_sectors=1), t).status is Severity.CRITICAL
     assert evaluate(_disk(DiskKind.HDD, reallocated_sectors=4), t).status is Severity.WARNING
-    rising = evaluate(_disk(DiskKind.HDD, reallocated_sectors=8), t, previous=Reading(reallocated_sectors=4))
+    rising = evaluate(_disk(DiskKind.HDD, reallocated_sectors=8), t, baseline=Reading(reallocated_sectors=4))
     assert rising.status is Severity.CRITICAL
-    assert evaluate(_disk(DiskKind.HDD, crc_errors=5), t, previous=Reading(crc_errors=5)).status is Severity.OK
-    assert evaluate(_disk(DiskKind.HDD, crc_errors=6), t, previous=Reading(crc_errors=5)).status is Severity.WARNING
+    assert evaluate(_disk(DiskKind.HDD, crc_errors=5), t, baseline=Reading(crc_errors=5)).status is Severity.OK
+    assert evaluate(_disk(DiskKind.HDD, crc_errors=6), t, baseline=Reading(crc_errors=5)).status is Severity.WARNING
     assert evaluate(_disk(DiskKind.NVME, critical_warnings=["temperature"]), t).status is Severity.CRITICAL
     assert evaluate(_disk(DiskKind.HDD, health_passed=False), t).status is Severity.CRITICAL
     assert evaluate(_disk(DiskKind.HDD, failing_attributes=["Spin_Retry_Count"]), t).status is Severity.CRITICAL

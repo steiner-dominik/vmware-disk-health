@@ -42,8 +42,11 @@ def norm_key(key: str) -> str:
     return re.sub(r"[^a-z0-9]", "", key.lower())
 
 
-def _record(mapping: dict[str, Any]) -> Record:
-    return {norm_key(k): v for k, v in mapping.items()}
+def _record(mapping: dict[str, Any], *, keep_labels: bool = False) -> Record:
+    record = {norm_key(k): v for k, v in mapping.items()}
+    if keep_labels and mapping:  # original labels, for showing raw data to people
+        record["_labels"] = {norm_key(k): k for k in mapping}
+    return record
 
 
 # ---------------------------------------------------------------- front-ends
@@ -59,7 +62,7 @@ def decode_json(text: str, shape: Shape) -> Record | list[Record]:
             data = data[0]
         if not isinstance(data, dict):
             raise ValueError(f"expected a JSON object, got {type(data).__name__}")
-        return _record(data)
+        return _record(data, keep_labels=True)
     if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
         raise ValueError("expected a JSON list of objects")
     return [_record(item) for item in data]
@@ -92,13 +95,13 @@ def text_blocks(text: str) -> list[Record]:
 
 def text_record(text: str) -> Record:
     """A single ``Key: Value`` block; an unindented header line is ignored."""
-    record: Record = {}
+    pairs: dict[str, str] = {}
     for line in text.splitlines():
         if ":" not in line or not line[:1].isspace():
             continue
         key, _, value = line.strip().partition(":")
-        record[norm_key(key)] = value.strip()
-    return record
+        pairs[key.strip()] = value.strip()
+    return _record(pairs, keep_labels=True)
 
 
 def text_table(text: str) -> list[Record]:
@@ -126,6 +129,10 @@ def text_table(text: str) -> list[Record]:
 
 
 # ------------------------------------------------------------------- values
+
+
+def has_values(record: Record) -> bool:
+    return any(key != "_labels" for key in record)
 
 
 def as_str(value: Any) -> str:
@@ -302,7 +309,7 @@ def parse_nvme_smart_log(record: Record) -> Reading:
     units_read = as_int(record.get("dataunitsread"))
     return Reading(
         # NVMe has no pass/fail verdict; any critical warning bit is a failure.
-        health_passed=not warnings if record else None,
+        health_passed=not warnings if has_values(record) else None,
         temperature_c=kelvin(record.get("compositetemperature")),
         power_on_hours=as_int(record.get("poweronhours")),
         power_cycles=as_int(record.get("powercycles")),
