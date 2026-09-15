@@ -1,8 +1,9 @@
 import asyncio
 
+import pytest
 from conftest import fixture_text
 
-from vmware_disk_health.collector import collect_host
+from vmware_disk_health.collector import ESXCLI_JSON, collect_host
 from vmware_disk_health.config import HostConfig, Settings
 from vmware_disk_health.evaluate import evaluate
 from vmware_disk_health.model import DiskInfo, DiskKind, DiskResult, Reading, Severity
@@ -11,90 +12,119 @@ from vmware_disk_health.transport import CommandResult, FixtureTransport
 EXOS = "t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS"
 SAMSUNG = "t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____"
 OPTANE = "t10.NVMe____EO000750KWTXC___________________________00014935E3E4D25C"
+SN850X = "t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00"
 SMARTCTL = "/opt/smartmontools/smartctl"
+UNSUPPORTED_FORMATTER = CommandResult("Unable to find requested formatter: json\n", exit_status=1)
 
 
-def responses(with_smartctl: bool) -> dict:
-    native = fixture_text("synthetic/esxcli_storage_core_device_smart_get_ata.txt")
-    result = {
-        "vmware -vl": fixture_text("sa-esxi-01/vmware_-vl.txt"),
-        "esxcli storage core device list": fixture_text("sa-esxi-01/esxcli_storage_core_device_list.txt"),
-        "esxcli storage core path list": fixture_text("synthetic/esxcli_storage_core_path_list.txt"),
-        "esxcli nvme device list": fixture_text("sa-esxi-01/esxcli_nvme_device_list.txt"),
-        "esxcli nvme device log smart get -A vmhba4": fixture_text("sa-esxi-01/esxcli_nvme_device_log_smart_get_-A_vmhba4.txt"),
-        f"esxcli storage core device smart get -d {EXOS}": native,
+def sa_esxi_01(*, json: bool, smartctl: bool) -> dict:
+    """Recorded responses of sa-esxi-01; commands without a capture fail."""
+    f = fixture_text
+    responses = {
+        "vmware -vl": f("sa-esxi-01/vmware_-vl.txt"),
+        "esxcli storage core device list": f("sa-esxi-01/esxcli_storage_core_device_list.txt"),
+        "esxcli storage core device capacity list": f("synthetic/esxcli_storage_core_device_capacity_list.txt"),
+        "esxcli storage core path list": f("sa-esxi-01/esxcli_storage_core_path_list.txt"),
+        "esxcli nvme device get -A vmhba4": f("sa-esxi-01/esxcli_nvme_device_get_-A_vmhba4.txt"),
+        "esxcli nvme device log smart get -A vmhba4": f("sa-esxi-01/esxcli_nvme_device_log_smart_get_-A_vmhba4.txt"),
+        f"esxcli storage core device smart get -d {EXOS}": f("sa-esxi-01/esxcli_storage_core_device_smart_get_exos.txt"),
+        f"esxcli storage core device smart get -d {SAMSUNG}": f("sa-esxi-01/esxcli_storage_core_device_smart_get_samsung.txt"),
+        f"esxcli storage core device smart get -d {OPTANE}": f("sa-esxi-01/esxcli_storage_core_device_smart_get_optane.txt"),
+        f"{ESXCLI_JSON} system version get": UNSUPPORTED_FORMATTER,
     }
-    if with_smartctl:
-        result[f"test -x {SMARTCTL}"] = ""
-        result[f"{SMARTCTL} -j -x -n standby -d sat,auto /dev/disks/{EXOS}"] = fixture_text(
-            "sa-esxi-01/smartctl_seagate_exos_x20.json"
+    if json:
+        responses[f"{ESXCLI_JSON} system version get"] = f("sa-esxi-01/esxcli_json_system_version_get.json")
+        responses[f"{ESXCLI_JSON} nvme device log smart get -A vmhba4"] = f(
+            "sa-esxi-01/esxcli_json_nvme_device_log_smart_get_-A_vmhba4.json"
         )
-        result[f"{SMARTCTL} -j -x -n standby -d sat,auto /dev/disks/{SAMSUNG}"] = CommandResult(
-            fixture_text("sa-esxi-01/smartctl_samsung_750_evo.json"), exit_status=4
+    if smartctl:
+        responses[f"test -x {SMARTCTL}"] = ""
+        responses[f"{SMARTCTL} -j -x -n standby -d sat,auto /dev/disks/{EXOS}"] = f("sa-esxi-01/smartctl_seagate_exos_x20.json")
+        # Exit status 4 (some SMART command failed) still carries usable data.
+        responses[f"{SMARTCTL} -j -x -n standby -d sat,auto /dev/disks/{SAMSUNG}"] = CommandResult(
+            f("sa-esxi-01/smartctl_samsung_750_evo.json"), exit_status=4
         )
-    return result
+    return responses
 
 
-def run_collection(with_smartctl: bool, settings: Settings | None = None):
-    host = HostConfig(name="sa-esxi-01", address="10.0.0.1")
-    settings = settings or Settings(hosts=[host], data_dir="/tmp/unused")
-    transport = FixtureTransport(responses(with_smartctl))
+def collect(responses: dict, host: HostConfig | None = None, previous=lambda key: None):
+    host = host or HostConfig(name="sa-esxi-01", address="10.0.0.1")
+    transport = FixtureTransport(responses)
 
     async def connect(_host):
         return transport
 
-    result = asyncio.run(collect_host(host, settings, connect, lambda key: None))
+    result = asyncio.run(collect_host(host, Settings(hosts=[host], data_dir="/tmp/unused"), connect, previous))
     return result, {d.info.device_id: d for d in result.disks}, transport
 
 
-def test_collection_without_smartctl_uses_native_tools_only():
-    result, disks, transport = run_collection(with_smartctl=False)
-    assert result.ok and result.smartctl_path is None
+def test_without_smartctl_everything_comes_from_esxcli():
+    result, disks, transport = collect(sa_esxi_01(json=False, smartctl=False))
+    assert result.ok and result.smartctl_path is None and not result.esxcli_json
     assert result.esxi_version == "VMware ESXi 8.0.3 build-25205845"
     assert len(disks) == 7
     assert not any("smartctl -j" in c for c in transport.commands)
 
-    assert disks[EXOS].sources == ["esxcli-smart"]
-    assert disks[EXOS].reading.temperature_c == 30
-    assert disks[EXOS].status is Severity.OK
+    exos = disks[EXOS]
+    assert exos.sources == ["esxcli-smart"]
+    assert (exos.reading.temperature_c, exos.reading.power_on_hours) == (30, 23065)
+    assert exos.info.format_type == "512e"
+    assert exos.status is Severity.OK
+
+    samsung = disks[SAMSUNG]
+    assert (samsung.reading.temperature_c, samsung.reading.life_remaining_pct) == (37, 77)
+    assert samsung.status is Severity.OK
 
     optane = disks[OPTANE]
     assert optane.info.nvme_adapter == "vmhba4"
-    assert optane.sources == ["esxcli-nvme"]
+    assert optane.info.serial == "PHKE018000T8750BGN"
+    assert optane.sources == ["esxcli-nvme", "esxcli-smart"]
     assert optane.reading.written_bytes == 0x52C46FC1 * 512_000
+    assert optane.reading.temperature_limit_c == pytest.approx(69.9, abs=0.1)
     assert optane.status is Severity.OK
 
-    # No capture for these: no data means unknown, never a false "ok".
-    assert disks[SAMSUNG].status is Severity.UNKNOWN
-    assert disks[SAMSUNG].errors
+    # No capture for this one: no data means unknown, never a false "ok".
+    assert disks[SN850X].status is Severity.UNKNOWN
+    assert disks[SN850X].errors
 
 
-def test_collection_with_smartctl_prefers_its_data():
-    _, disks, _ = run_collection(with_smartctl=True)
+def test_json_formatter_is_used_when_available_with_text_fallback():
+    result, disks, transport = collect(sa_esxi_01(json=True, smartctl=False))
+    assert result.esxcli_json
+    assert result.esxi_version == "VMware ESXi 8.0.3 Update 3 build-25205845"
+    assert f"{ESXCLI_JSON} nvme device log smart get -A vmhba4" in transport.commands
+    assert "esxcli nvme device log smart get -A vmhba4" not in transport.commands
+    # Commands without a JSON capture fell back to text and still produced data.
+    assert "esxcli storage core device list" in transport.commands
+    assert len(disks) == 7
+    assert disks[OPTANE].reading.power_on_hours == 25542
+
+
+def test_smartctl_data_takes_priority_when_installed():
+    result, disks, transport = collect(sa_esxi_01(json=False, smartctl=True))
+    assert result.smartctl_path == SMARTCTL
     exos = disks[EXOS]
     assert exos.sources == ["smartctl", "esxcli-smart"]
-    assert exos.reading.written_bytes == 175524780300 * 512
-    assert exos.reading.reallocated_sectors == 0
-    assert exos.info.serial == "ZVTBWXYS"
-    # Exit status 4 (a SMART command failed) still carries usable data.
+    assert exos.reading.written_bytes == 175524780300 * 512  # smartctl's value, not esxcli's later one
+    assert exos.reading.crc_errors == 0  # only smartctl has this
     samsung = disks[SAMSUNG]
-    assert samsung.sources == ["smartctl"]
+    assert samsung.sources == ["smartctl", "esxcli-smart"]
     assert samsung.reading.life_remaining_pct == 77
-    assert samsung.status is Severity.OK
-    # smartctl cannot open NVMe on ESXi, so it is never tried for them.
-    assert disks[OPTANE].sources == ["esxcli-nvme"]
+    # smartctl cannot open NVMe devices on ESXi, so it is never tried for them.
+    assert not any("smartctl -j" in c and "NVMe" in c for c in transport.commands)
 
 
 def test_exclude_patterns():
     host = HostConfig(name="sa-esxi-01", address="10.0.0.1", exclude="*Samsung*, t10.NVMe*")
-    settings = Settings(hosts=[host], data_dir="/tmp/unused")
-    transport = FixtureTransport(responses(False))
-
-    async def connect(_host):
-        return transport
-
-    result = asyncio.run(collect_host(host, settings, connect, lambda key: None))
+    result, _, _ = collect(sa_esxi_01(json=False, smartctl=False), host)
     assert {d.info.kind for d in result.disks} == {DiskKind.HDD}
+
+
+def test_missing_device_list_fails_the_host():
+    responses = sa_esxi_01(json=False, smartctl=False)
+    del responses["esxcli storage core device list"]
+    result, _, _ = collect(responses)
+    assert not result.ok and "device list" in result.error
 
 
 def test_unreachable_host_is_reported_not_raised():
@@ -113,8 +143,7 @@ def _disk(kind: DiskKind, **values) -> DiskResult:
 
 
 def test_evaluate_thresholds():
-    settings = Settings()
-    t = settings.thresholds
+    t = Settings().thresholds
     assert evaluate(_disk(DiskKind.SSD, life_used_pct=85), t).status is Severity.WARNING
     assert evaluate(_disk(DiskKind.SSD, life_used_pct=95), t).status is Severity.CRITICAL
     assert evaluate(_disk(DiskKind.HDD, pending_sectors=1), t).status is Severity.CRITICAL
@@ -125,13 +154,13 @@ def test_evaluate_thresholds():
     assert evaluate(_disk(DiskKind.HDD, crc_errors=6), t, previous=Reading(crc_errors=5)).status is Severity.WARNING
     assert evaluate(_disk(DiskKind.NVME, critical_warnings=["temperature"]), t).status is Severity.CRITICAL
     assert evaluate(_disk(DiskKind.HDD, health_passed=False), t).status is Severity.CRITICAL
+    assert evaluate(_disk(DiskKind.HDD, failing_attributes=["Spin_Retry_Count"]), t).status is Severity.CRITICAL
 
 
 def test_evaluate_temperature_respects_drive_limit():
     t = Settings().thresholds
     # SSD defaults are 60/70, but this drive is only rated for 55.
-    disk = evaluate(_disk(DiskKind.SSD, temperature_c=52, temperature_limit_c=55), t)
-    assert disk.status is Severity.WARNING
+    assert evaluate(_disk(DiskKind.SSD, temperature_c=52, temperature_limit_c=55), t).status is Severity.WARNING
     assert evaluate(_disk(DiskKind.HDD, temperature_c=49, temperature_limit_c=60), t).status is Severity.OK
 
 

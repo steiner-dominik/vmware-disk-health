@@ -1,0 +1,7 @@
+Parameter                 Value  Threshold  Worst  Raw
+------------------------  -----  ---------  -----  ---
+Health Status             OK     N/A        N/A    N/A
+Power-on Hours            25542  N/A        N/A    N/A
+Power Cycle Count         47     N/A        N/A    N/A
+Reallocated Sector Count  0      100        N/A    N/A
+Drive Temperature         39     80         N/A    N/A

@@ -1,0 +1,15 @@
+Parameter                          Value  Threshold  Worst  Raw
+---------------------------------  -----  ---------  -----  ---
+Health Status                      OK     N/A        N/A    N/A
+Read Error Count                   100    0          100    0
+Power-on Hours                     100    0          100    23459
+Power Cycle Count                  100    0          100    40
+Reallocated Sector Count           100    10         100    0
+Drive Temperature                  64     0          49     219043332132
+Initial Bad Block Count            100    0          100    0
+Program Fail Count                 100    0          100    0
+Erase Fail Count                   100    0          100    0
+Uncorrectable Error Count          100    0          100    0
+Sector Reallocation Event Count    100    0          100    0
+Pending Sector Reallocation Count  100    0          100    0
+Uncorrectable Sector Count         100    0          100    0

@@ -79,7 +79,8 @@ def parse_smartctl(text: str) -> tuple[Reading, dict[str, Any]]:
     reading = Reading(
         health_passed=smart_status.get("passed") if "passed" in smart_status else None,
         temperature_c=temperature.get("current") if temperature.get("current") is not None else raw(194),
-        temperature_limit_c=temperature.get("limit_max") or temperature.get("op_limit_max"),
+        # The operating limit, not the absolute one: an MX500 reports 70 and 100.
+        temperature_limit_c=temperature.get("op_limit_max") or temperature.get("limit_max"),
         power_on_hours=data.get("power_on_time", {}).get("hours", raw(9)),
         power_cycles=data.get("power_cycle_count", raw(12)),
         life_used_pct=_life_used(data, attrs),
@@ -94,6 +95,7 @@ def parse_smartctl(text: str) -> tuple[Reading, dict[str, Any]]:
         # Only meaningful for SSDs; HDDs report a static 100/10 here.
         available_spare_pct=spare.get("current_percent") if data.get("rotation_rate") == 0 else None,
         available_spare_threshold_pct=spare.get("threshold_percent") if data.get("rotation_rate") == 0 else None,
+        failing_attributes=[a.get("name", str(a["id"])) for a in attrs.values() if a.get("when_failed") == "now"],
     )
 
     compact = {

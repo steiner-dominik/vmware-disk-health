@@ -1,0 +1,14 @@
+Parameter                          Value  Threshold  Worst  Raw
+---------------------------------  -----  ---------  -----  ---
+Health Status                      OK     N/A        N/A    N/A
+Write Error Count                  100    1          100    0
+Read Error Count                   76     44         64     41320506
+Power-on Hours                     74     0          74     23065
+Power Cycle Count                  100    20         100    16
+Reallocated Sector Count           100    10         100    0
+Drive Temperature                  30     0          47     38654705694
+Write Sectors TOT Count            100    0          253    175524784828
+Read Sectors TOT Count             100    0          253    704888298865
+Uncorrectable Error Count          100    0          100    0
+Pending Sector Reallocation Count  100    0          100    0
+Uncorrectable Sector Count         100    0          100    0

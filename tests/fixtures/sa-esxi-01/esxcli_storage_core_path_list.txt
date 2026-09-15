@@ -1,0 +1,151 @@
+pcie.d00-pcie.0:0-t10.NVMe____EO000750KWTXC___________________________00014935E3E4D25C
+   UID: pcie.d00-pcie.0:0-t10.NVMe____EO000750KWTXC___________________________00014935E3E4D25C
+   Runtime Name: vmhba4:C0:T0:L0
+   Device: t10.NVMe____EO000750KWTXC___________________________00014935E3E4D25C
+   Device Display Name: Local NVMe Disk (t10.NVMe____EO000750KWTXC___________________________00014935E3E4D25C)
+   Adapter: vmhba4
+   Controller: nqn.2014-08.org.nvmexpress_8086_EO000750KWTXC___________________________PHKE018000T8750BGN
+   Channel: 0
+   Target: 0
+   LUN: 0
+   Plugin: HPP
+   State: active
+   Transport: pcie
+   Adapter Identifier: pcie.d00
+   Target Identifier: pcie.0:0
+   Adapter Transport Details: Unavailable or path is unclaimed
+   Target Transport Details: Unavailable or path is unclaimed
+   Maximum IO Size: 131072
+
+usb.vmhba32-usb.0:0-mpx.vmhba32:C0:T0:L0
+   UID: usb.vmhba32-usb.0:0-mpx.vmhba32:C0:T0:L0
+   Runtime Name: vmhba32:C0:T0:L0
+   Device: mpx.vmhba32:C0:T0:L0
+   Device Display Name: Local USB CD-ROM (mpx.vmhba32:C0:T0:L0)
+   Adapter: vmhba32
+   Controller: Not Applicable
+   Channel: 0
+   Target: 0
+   LUN: 0
+   Plugin: NMP
+   State: active
+   Transport: usb
+   Adapter Identifier: usb.vmhba32
+   Target Identifier: usb.0:0
+   Adapter Transport Details: Unavailable or path is unclaimed
+   Target Transport Details: Unavailable or path is unclaimed
+   Maximum IO Size: 32768
+
+sata.vmhba2-sata.0:2-t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS
+   UID: sata.vmhba2-sata.0:2-t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS
+   Runtime Name: vmhba2:C0:T2:L0
+   Device: t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS
+   Device Display Name: Local ATA Disk (t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS)
+   Adapter: vmhba2
+   Controller: Not Applicable
+   Channel: 0
+   Target: 2
+   LUN: 0
+   Plugin: HPP
+   State: active
+   Transport: sata
+   Adapter Identifier: sata.vmhba2
+   Target Identifier: sata.0:2
+   Adapter Transport Details: Unavailable or path is unclaimed
+   Target Transport Details: Unavailable or path is unclaimed
+   Maximum IO Size: 33554432
+
+pcie.100-pcie.0:0-t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00
+   UID: pcie.100-pcie.0:0-t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00
+   Runtime Name: vmhba0:C0:T0:L0
+   Device: t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00
+   Device Display Name: Local NVMe Disk (t10.NVMe____WD_BLACK_SN850X_4000GB__________________4695514E8B441B00)
+   Adapter: vmhba0
+   Controller: nqn.2018-01.com.wdc:nguid:E8238FA6BF53-0001-001B448B4E519546
+   Channel: 0
+   Target: 0
+   LUN: 0
+   Plugin: HPP
+   State: active
+   Transport: pcie
+   Adapter Identifier: pcie.100
+   Target Identifier: pcie.0:0
+   Adapter Transport Details: Unavailable or path is unclaimed
+   Target Transport Details: Unavailable or path is unclaimed
+   Maximum IO Size: 524288
+
+sata.vmhba3-sata.0:0-t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____
+   UID: sata.vmhba3-sata.0:0-t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____
+   Runtime Name: vmhba3:C0:T0:L0
+   Device: t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____
+   Device Display Name: Local ATA Disk (t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____)
+   Adapter: vmhba3
+   Controller: Not Applicable
+   Channel: 0
+   Target: 0
+   LUN: 0
+   Plugin: HPP
+   State: active
+   Transport: sata
+   Adapter Identifier: sata.vmhba3
+   Target Identifier: sata.0:0
+   Adapter Transport Details: Unavailable or path is unclaimed
+   Target Transport Details: Unavailable or path is unclaimed
+   Maximum IO Size: 33554432
+
+sata.vmhba2-sata.0:1-t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBXN1D
+   UID: sata.vmhba2-sata.0:1-t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBXN1D
+   Runtime Name: vmhba2:C0:T1:L0
+   Device: t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBXN1D
+   Device Display Name: Local ATA Disk (t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBXN1D)
+   Adapter: vmhba2
+   Controller: Not Applicable
+   Channel: 0
+   Target: 1
+   LUN: 0
+   Plugin: HPP
+   State: active
+   Transport: sata
+   Adapter Identifier: sata.vmhba2
+   Target Identifier: sata.0:1
+   Adapter Transport Details: Unavailable or path is unclaimed
+   Target Transport Details: Unavailable or path is unclaimed
+   Maximum IO Size: 33554432
+
+sata.vmhba2-sata.0:0-t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTC3WC6
+   UID: sata.vmhba2-sata.0:0-t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTC3WC6
+   Runtime Name: vmhba2:C0:T0:L0
+   Device: t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTC3WC6
+   Device Display Name: Local ATA Disk (t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTC3WC6)
+   Adapter: vmhba2
+   Controller: Not Applicable
+   Channel: 0
+   Target: 0
+   LUN: 0
+   Plugin: HPP
+   State: active
+   Transport: sata
+   Adapter Identifier: sata.vmhba2
+   Target Identifier: sata.0:0
+   Adapter Transport Details: Unavailable or path is unclaimed
+   Target Transport Details: Unavailable or path is unclaimed
+   Maximum IO Size: 33554432
+
+pcie.400-pcie.0:0-t10.NVMe____WD_BLACK_SN850X_4000GB__________________243E584E8B441B00
+   UID: pcie.400-pcie.0:0-t10.NVMe____WD_BLACK_SN850X_4000GB__________________243E584E8B441B00
+   Runtime Name: vmhba1:C0:T0:L0
+   Device: t10.NVMe____WD_BLACK_SN850X_4000GB__________________243E584E8B441B00
+   Device Display Name: Local NVMe Disk (t10.NVMe____WD_BLACK_SN850X_4000GB__________________243E584E8B441B00)
+   Adapter: vmhba1
+   Controller: nqn.2018-01.com.wdc:nguid:E8238FA6BF53-0001-001B448B4E583E24
+   Channel: 0
+   Target: 0
+   LUN: 0
+   Plugin: HPP
+   State: active
+   Transport: pcie
+   Adapter Identifier: pcie.400
+   Target Identifier: pcie.0:0
+   Adapter Transport Details: Unavailable or path is unclaimed
+   Target Transport Details: Unavailable or path is unclaimed
+   Maximum IO Size: 524288

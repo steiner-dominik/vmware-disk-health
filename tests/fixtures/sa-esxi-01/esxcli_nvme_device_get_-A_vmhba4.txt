@@ -1,0 +1,69 @@
+Controller Identify Info:
+   PCIVID: 0x8086
+   PCISSVID: 0x1590
+   Serial Number: PHKE018000T8750BGN
+   Model Number: EO000750KWTXC
+   Firmware Revision: 4ICSHPK4
+   Recommended Arbitration Burst: 0
+   IEEE OUI Identifier: 5cd2e4
+   Controller Associated with an SR-IOV Virtual Function: false
+   Controller Associated with a PCI Function: true
+   NVM Subsystem May Contain Two or More Controllers: false
+   NVM Subsystem Contains Only One Controller: true
+   NVM Subsystem May Contain Two or More PCIe Ports: false
+   NVM Subsystem Contains Only One PCIe Port: true
+   Max Data Transfer Size: 5
+   Controller ID: 0
+   Version: 0.0
+   RTD3 Resume Latency: 0 us
+   RTD3 Entry Latency: 0 us
+   Optional Firmware Activation Event Support: false
+   Optional Namespace Attribute Changed Event Support: false
+   Host Identifier Support: false
+   Namespace Management and Attachment Support: false
+   Firmware Activate and Download Support: true
+   Format NVM Support: true
+   Security Send and Receive Support: false
+   Abort Command Limit: 3
+   Async Event Request Limit: 3
+   Firmware Activate Without Reset Support: false
+   Firmware Slot Number: 1
+   The First Slot Is Read-only: false
+   Telemetry Log Page Support: true
+   Command Effects Log Page Support: true
+   SMART/Health Information Log Page per Namespace Support: false
+   Error Log Page Entries: 63
+   Number of Power States Support: 0
+   Format of Admin Vendor Specific Commands Is Same: false
+   Format of Admin Vendor Specific Commands Is Vendor Specific: true
+   Autonomous Power State Transitions Support: false
+   Warning Composite Temperature Threshold: 343
+   Critical Composite Temperature Threshold: 0
+   Max Time for Firmware Activation: 0 * 100ms
+   Host Memory Buffer Preferred Size: 0 * 4KB
+   Host Memory Buffer Min Size: 0 * 4KB
+   Total NVM Capacity: 0x0
+   Unallocated NVM Capacity: 0x0
+   Access Size: 0 * 512B
+   Total Size: 0 * 128KB
+   Authentication Method: 0
+   Number of RPMB Units: 0
+   Keep Alive Support: 0
+   Max Submission Queue Entry Size: 64 Bytes
+   Required Submission Queue Entry Size: 64 Bytes
+   Max Completion Queue Entry Size: 16 Bytes
+   Required Completion Queue Entry Size: 16 Bytes
+   Max Outstanding Commands: 0
+   Number of Namespaces: 1
+   Reservation Support: false
+   Save/Select Field in Set/Get Feature Support: false
+   Write Zeroes Command Support: false
+   Dataset Management Command Support: true
+   Write Uncorrectable Command Support: true
+   Compare Command Support: false
+   Fused Operation Support: false
+   Volatile Write Cache Is Present: false
+   Atomic Write Unit Normal: 0 Logical Blocks
+   Atomic Write Unit Power Fail: 0 Logical Blocks
+   NVM Subsystem NVMe Qualified Name:
+   NVM Subsystem NVMe Qualified Name (hex format):

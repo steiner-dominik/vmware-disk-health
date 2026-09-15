@@ -14,15 +14,20 @@ The app connects to each ESXi host over SSH and runs read-only commands:
 | Source | Ships with ESXi | Used for |
 |---|---|---|
 | `esxcli storage core device list` | yes | discovering local disks |
-| `esxcli storage core device smart get` | yes | health, temperature, wear where reported |
+| `esxcli storage core device smart get` | yes | health, temperature, counters, wear where reported |
 | `esxcli nvme device log smart get` | yes | NVMe health log |
 | `smartctl` ([community VIB](https://github.com/bsv9/smartctl-esxi-vib)) | **no** | full ATA attributes, if installed |
 
 smartctl is optional. When it is present it adds the detail ESXi does not
-expose (pending sectors, CRC errors, total bytes written on SATA drives); when
-it is not, the built-in tools still provide health and temperature, plus wear
-where the drive reports it.
+expose (CRC errors, vendor wear attributes, the full attribute table); when
+it is not, ESXi 8's built-in SMART data still provides health, temperature,
+power-on hours, sector counters and bytes written, plus wear where the drive
+reports it to ESXi (a Crucial MX500, for example, does not).
 smartctl cannot read NVMe devices on ESXi, so NVMe always uses `esxcli`.
+
+esxcli output is read as JSON through `esxcli --debug --formatter=json` where
+the host supports it. The flag is undocumented, so every command falls back to
+parsing the regular text output.
 
 ## Try it
 

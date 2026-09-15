@@ -25,6 +25,8 @@ def evaluate(result: DiskResult, thresholds: Thresholds, previous: Reading | Non
 
     if r.health_passed is False:
         add("health_failed", Severity.CRITICAL, "drive reports failing health")
+    for name in r.failing_attributes:
+        add("attribute_failing", Severity.CRITICAL, f"SMART attribute {name} is below its failure threshold", name)
     for flag in r.critical_warnings:
         add(f"nvme_{flag}", Severity.CRITICAL, f"NVMe critical warning: {flag.replace('_', ' ')}")
     if (

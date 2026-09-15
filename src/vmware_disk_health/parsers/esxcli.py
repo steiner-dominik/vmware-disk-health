@@ -1,95 +1,149 @@
-"""Parsers for the text output of esxcli on ESXi 8.
+"""Parsers for esxcli output.
 
-ESXi 8.0.3 has no JSON formatter, so these read the default human-readable
-layouts: indented ``Key: Value`` blocks and fixed-column tables.
+esxcli prints JSON only with the undocumented ``--debug --formatter=json``
+flags, so every command is parsed from either JSON or the default text layout
+(indented ``Key: Value`` blocks and fixed-column tables). Both are turned into
+*records*: dicts keyed by the label with spaces and punctuation removed, which
+is exactly how the JSON formatter names its keys (``Number of Error Info Log
+Entries`` -> ``NumberofErrorInfoLogEntries``). The parsers below only ever
+see records, so they work the same for both formats.
 """
 
 from __future__ import annotations
 
+import json
 import re
+from enum import Enum
+from typing import Any
 
 from ..model import DiskInfo, DiskKind, Reading
 
-# NVMe critical warning flags as esxcli names them, in spec bit order.
-NVME_WARNING_FLAGS = {
-    "Available Spare Space Below Threshold": "spare_below_threshold",
-    "Temperature Warning": "temperature",
-    "NVM Subsystem Reliability Degradation": "reliability_degraded",
-    "Read Only Mode": "read_only",
-    "Volatile Memory Backup Device Failure": "volatile_backup_failed",
-}
+Record = dict[str, Any]
 
 NVME_DATA_UNIT_BYTES = 512 * 1000
 
+# NVMe critical warning bits, keyed by their record name.
+NVME_WARNING_FLAGS = {
+    "availablesparespacebelowthreshold": "spare_below_threshold",
+    "temperaturewarning": "temperature",
+    "nvmsubsystemreliabilitydegradation": "reliability_degraded",
+    "readonlymode": "read_only",
+    "volatilememorybackupdevicefailure": "volatile_backup_failed",
+}
 
-def parse_blocks(text: str) -> dict[str, dict[str, str]]:
-    """Parse ``name`` headers followed by indented ``Key: Value`` lines."""
-    blocks: dict[str, dict[str, str]] = {}
-    current: dict[str, str] | None = None
+
+class Shape(Enum):
+    BLOCKS = "blocks"  # list of named objects: device list, path list
+    RECORD = "record"  # one object: version, nvme device get, nvme smart log
+    TABLE = "table"  # list of rows: device smart get, nvme device list
+
+
+def norm_key(key: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", key.lower())
+
+
+def _record(mapping: dict[str, Any]) -> Record:
+    return {norm_key(k): v for k, v in mapping.items()}
+
+
+# ---------------------------------------------------------------- front-ends
+
+
+def decode_json(text: str, shape: Shape) -> Record | list[Record]:
+    """Raises ValueError if the output is not the JSON we expect."""
+    data = json.loads(text)
+    if isinstance(data, dict):
+        data = [data] if shape is not Shape.RECORD else data
+    if shape is Shape.RECORD:
+        if isinstance(data, list) and len(data) == 1:
+            data = data[0]
+        if not isinstance(data, dict):
+            raise ValueError(f"expected a JSON object, got {type(data).__name__}")
+        return _record(data)
+    if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
+        raise ValueError("expected a JSON list of objects")
+    return [_record(item) for item in data]
+
+
+def decode_text(text: str, shape: Shape) -> Record | list[Record]:
+    if shape is Shape.BLOCKS:
+        return text_blocks(text)
+    if shape is Shape.TABLE:
+        return text_table(text)
+    return text_record(text)
+
+
+def text_blocks(text: str) -> list[Record]:
+    """Unindented names followed by indented ``Key: Value`` lines.
+
+    The name is kept as ``_name``; for the device list it is the device id.
+    """
+    blocks: list[Record] = []
     for line in text.splitlines():
         if not line.strip():
             continue
         if not line[0].isspace():
-            current = blocks.setdefault(line.strip().rstrip(":"), {})
-            continue
-        if current is None or ":" not in line:
-            continue
-        key, _, value = line.strip().partition(":")
-        current[key.strip()] = value.strip()
+            blocks.append({"_name": line.strip().rstrip(":")})
+        elif blocks and ":" in line:
+            key, _, value = line.strip().partition(":")
+            blocks[-1][norm_key(key)] = value.strip()
     return blocks
 
 
-def parse_key_values(text: str) -> dict[str, str]:
-    """Flatten a single-block ``Key: Value`` output (header line optional)."""
-    result: dict[str, str] = {}
+def text_record(text: str) -> Record:
+    """A single ``Key: Value`` block; an unindented header line is ignored."""
+    record: Record = {}
     for line in text.splitlines():
-        if ":" not in line:
+        if ":" not in line or not line[:1].isspace():
             continue
         key, _, value = line.strip().partition(":")
-        if value.strip() or line[0].isspace():
-            result[key.strip()] = value.strip()
-    return result
+        record[norm_key(key)] = value.strip()
+    return record
 
 
-def parse_table(text: str) -> list[dict[str, str]]:
-    """Parse a fixed-width table whose second line is a row of dashes.
+def text_table(text: str) -> list[Record]:
+    """A fixed-width table whose second line is a row of dashes.
 
     Column boundaries come from the dash groups, so values containing single
     spaces (``Health Status``) stay intact.
     """
     lines = [line for line in text.splitlines() if line.strip()]
     for index, line in enumerate(lines[:-1]):
-        if re.fullmatch(r"[-\s]+", lines[index + 1]) and "-" in lines[index + 1]:
-            header, rule, rows = line, lines[index + 1], lines[index + 2 :]
+        rule = lines[index + 1]
+        if "-" in rule and re.fullmatch(r"[-\s]+", rule):
+            header, rows = line, lines[index + 2 :]
             break
     else:
         return []
-    spans = [m.span() for m in re.finditer(r"-+", rule)]
-    names = [header[start:end].strip() for start, end in _widen(spans, len(header))]
-    result = []
-    for row in rows:
-        cells = [row[start:end].strip() for start, end in _widen(spans, len(row))]
-        result.append(dict(zip(names, cells, strict=False)))
-    return result
+    starts = [m.start() for m in re.finditer(r"-+", rule)]
+
+    def cells(row: str) -> list[str]:
+        ends = starts[1:] + [max(len(row), len(rule))]
+        return [row[start:end].strip() for start, end in zip(starts, ends, strict=True)]
+
+    names = [norm_key(name) for name in cells(header)]
+    return [dict(zip(names, cells(row), strict=True)) for row in rows]
 
 
-def _widen(spans: list[tuple[int, int]], length: int) -> list[tuple[int, int]]:
-    # A column owns everything up to the start of the next one; the last one
-    # runs to the end of the line.
-    starts = [start for start, _ in spans]
-    ends = starts[1:] + [max(length, spans[-1][1])]
-    return list(zip(starts, ends, strict=True))
+# ------------------------------------------------------------------- values
 
 
-def _bool(value: str | None) -> bool:
-    return (value or "").strip().lower() == "true"
+def as_str(value: Any) -> str:
+    return "" if value is None else str(value).strip()
 
 
-def parse_number(value: str | None) -> float | None:
-    """Read esxcli numbers: decimal, ``0x`` hex, with or without a unit suffix."""
-    if value is None:
+def as_bool(value: Any) -> bool:
+    return value if isinstance(value, bool) else as_str(value).lower() == "true"
+
+
+def as_number(value: Any) -> float | None:
+    """Decimal, ``0x`` hex, with or without a unit suffix; None for N/A."""
+    if isinstance(value, bool) or value is None:
         return None
-    token = value.strip().split(" ")[0] if value.strip() else ""
+    if isinstance(value, int | float):
+        return float(value)
+    text = as_str(value)
+    token = text.split(" ")[0] if text else ""
     if not token or token.upper() in {"N/A", "NA", "UNKNOWN"}:
         return None
     try:
@@ -98,12 +152,35 @@ def parse_number(value: str | None) -> float | None:
         return None
 
 
-def _int(value: str | None) -> int | None:
-    number = parse_number(value)
+def as_int(value: Any) -> int | None:
+    number = as_number(value)
     return None if number is None else int(number)
 
 
-def parse_version(text: str) -> str | None:
+def kelvin(value: Any) -> float | None:
+    """NVMe reports temperatures in Kelvin, with or without a ``K`` suffix."""
+    number = as_number(value)
+    return round(number - 273.15, 1) if number and number > 0 else None
+
+
+# ------------------------------------------------------------------ parsers
+
+
+def parse_version(record: Record) -> str | None:
+    """``esxcli system version get``."""
+    version = as_str(record.get("version"))
+    if not version:
+        return None
+    update = as_str(record.get("update"))
+    build = re.sub(r"^\D*", "", as_str(record.get("build")))
+    text = f"{as_str(record.get('product')) or 'VMware ESXi'} {version}"
+    if update and update != "0":
+        text += f" Update {update}"
+    return f"{text} build-{build}" if build else text
+
+
+def parse_vmware_vl(text: str) -> str | None:
+    """``vmware -vl``, the fallback when esxcli has no JSON formatter."""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     return lines[0] if lines else None
 
@@ -111,7 +188,7 @@ def parse_version(text: str) -> str | None:
 def t10_serial(device_id: str) -> str:
     """Serial number embedded in an ATA t10 identifier.
 
-    ``t10.ATA_____<model, 40 chars>_<serial, 20 chars>`` with spaces encoded
+    ``t10.ATA_____<model, 40 chars><serial, 20 chars>`` with spaces encoded
     as underscores. NVMe t10 ids carry an EUI-64 instead, not a serial.
     """
     match = re.match(r"t10\.ATA_{5}(.+)$", device_id)
@@ -136,122 +213,171 @@ def t10_model(device_id: str, listed_model: str) -> str:
     return candidate if listed and candidate.startswith(listed) else listed
 
 
-def parse_device_list(text: str) -> list[DiskInfo]:
+def parse_device_list(records: list[Record]) -> list[DiskInfo]:
     """Local physical disks from ``esxcli storage core device list``.
 
     Skips CD-ROMs, USB devices, pseudo/offline devices, RAID logical volumes
     and anything that is not local (SAN, iSCSI, vVols).
     """
     disks = []
-    for device_id, props in parse_blocks(text).items():
-        if props.get("Device Type", "").strip() != "Direct-Access":
+    for rec in records:
+        device_id = as_str(rec.get("device")) or as_str(rec.get("_name"))
+        if not device_id or as_str(rec.get("devicetype")) != "Direct-Access":
             continue
-        if not _bool(props.get("Is Local")) or _bool(props.get("Is USB")):
+        if not as_bool(rec.get("islocal")) or as_bool(rec.get("isusb")):
             continue
-        if _bool(props.get("Is Pseudo")) or _bool(props.get("Is Offline")):
+        if as_bool(rec.get("ispseudo")) or as_bool(rec.get("isoffline")):
             continue
-        if props.get("Drive Type", "").strip().lower() == "logical":
+        if as_str(rec.get("drivetype")).lower() == "logical":
             continue
-        if not props.get("Devfs Path", "").startswith("/vmfs/devices/disks/"):
+        if not as_str(rec.get("devfspath")).startswith("/vmfs/devices/disks/"):
             continue
-        vendor = props.get("Vendor", "").strip()
+        vendor = as_str(rec.get("vendor"))
+        model = as_str(rec.get("model"))
         is_nvme = vendor.upper() == "NVME" or device_id.startswith("t10.NVMe")
-        is_sas = _bool(props.get("Is SAS"))
         if is_nvme:
             kind = DiskKind.NVME
-        elif _bool(props.get("Is SSD")):
+        elif as_bool(rec.get("isssd")):
             kind = DiskKind.SSD
         else:
             kind = DiskKind.HDD
-        size_mb = _int(props.get("Size"))
+        size_mb = as_int(rec.get("size"))
         disks.append(
             DiskInfo(
                 device_id=device_id,
-                display_name=props.get("Display Name", ""),
+                display_name=as_str(rec.get("displayname")),
                 vendor=vendor,
-                model=t10_model(device_id, props.get("Model", "")) if not is_nvme else props.get("Model", "").strip(),
-                firmware=props.get("Revision", "").strip(),
+                model=model if is_nvme else t10_model(device_id, model),
+                firmware=as_str(rec.get("revision")),
                 serial=t10_serial(device_id),
                 size_bytes=size_mb * 1024 * 1024 if size_mb else None,
                 kind=kind,
-                protocol="nvme" if is_nvme else "sas" if is_sas else "ata",
-                is_boot=_bool(props.get("Is Boot Device")),
+                protocol="nvme" if is_nvme else "sas" if as_bool(rec.get("issas")) else "ata",
+                is_boot=as_bool(rec.get("isbootdevice")),
             )
         )
     return disks
 
 
-def parse_path_list(text: str) -> dict[str, str]:
+def parse_path_list(records: list[Record]) -> dict[str, str]:
     """Map device id -> adapter (vmhbaN) from ``esxcli storage core path list``."""
     mapping: dict[str, str] = {}
-    for props in parse_blocks(text).values():
-        device, adapter = props.get("Device"), props.get("Adapter")
+    for rec in records:
+        device, adapter = as_str(rec.get("device")), as_str(rec.get("adapter"))
         if device and adapter:
             mapping.setdefault(device, adapter)
     return mapping
 
 
-def parse_nvme_adapters(text: str) -> list[str]:
+def parse_nvme_adapters(records: list[Record]) -> list[str]:
     """Adapter names from ``esxcli nvme device list``."""
-    return [row["HBA Name"] for row in parse_table(text) if row.get("HBA Name")]
+    return [as_str(rec.get("hbaname")) for rec in records if as_str(rec.get("hbaname"))]
 
 
-def parse_nvme_device_get(text: str) -> dict[str, str]:
-    """Identify-controller data from ``esxcli nvme device get -A vmhbaN``."""
-    return parse_key_values(text)
+def parse_capacity_list(records: list[Record]) -> dict[str, tuple[int | None, str]]:
+    """Device id -> (logical block size, format type) from ``esxcli storage core device capacity list``."""
+    return {
+        as_str(rec.get("device")): (as_int(rec.get("logicalblocksize")), as_str(rec.get("formattype")))
+        for rec in records
+        if as_str(rec.get("device"))
+    }
 
 
-def kelvin_to_celsius(value: str | None) -> float | None:
-    number = parse_number(value)
-    if number is None or number <= 0:
-        return None
-    return round(number - 273.15, 1) if (value or "").strip().upper().endswith("K") else number
+def parse_nvme_device_get(record: Record) -> tuple[str, float | None]:
+    """Serial number and temperature limit from ``esxcli nvme device get -A vmhbaN``.
+
+    The limit is the critical composite threshold, or the warning threshold
+    (where the drive starts throttling) when no critical one is set.
+    """
+    limit = kelvin(record.get("criticalcompositetemperaturethreshold")) or kelvin(
+        record.get("warningcompositetemperaturethreshold")
+    )
+    return as_str(record.get("serialnumber")), limit
 
 
-def parse_nvme_smart_log(text: str) -> tuple[Reading, dict[str, str]]:
-    """``esxcli nvme device log smart get -A vmhbaN`` -> reading + raw values."""
-    props = parse_key_values(text)
-    warnings = [flag for label, flag in NVME_WARNING_FLAGS.items() if _bool(props.get(label))]
-    units_written = _int(props.get("Data Units Written"))
-    units_read = _int(props.get("Data Units Read"))
-    percentage_used = parse_number(props.get("Percentage Used"))
-    reading = Reading(
+def parse_nvme_smart_log(record: Record) -> Reading:
+    """``esxcli nvme device log smart get -A vmhbaN``."""
+    warnings = [flag for key, flag in NVME_WARNING_FLAGS.items() if as_bool(record.get(key))]
+    units_written = as_int(record.get("dataunitswritten"))
+    units_read = as_int(record.get("dataunitsread"))
+    return Reading(
         # NVMe has no pass/fail verdict; any critical warning bit is a failure.
-        health_passed=not warnings if props else None,
-        temperature_c=kelvin_to_celsius(props.get("Composite Temperature")),
-        power_on_hours=_int(props.get("Power On Hours")),
-        power_cycles=_int(props.get("Power Cycles")),
-        unsafe_shutdowns=_int(props.get("Unsafe Shutdowns")),
+        health_passed=not warnings if record else None,
+        temperature_c=kelvin(record.get("compositetemperature")),
+        power_on_hours=as_int(record.get("poweronhours")),
+        power_cycles=as_int(record.get("powercycles")),
+        unsafe_shutdowns=as_int(record.get("unsafeshutdowns")),
         # Percentage Used may legitimately exceed 100 on worn drives.
-        life_used_pct=percentage_used,
+        life_used_pct=as_number(record.get("percentageused")),
         written_bytes=units_written * NVME_DATA_UNIT_BYTES if units_written is not None else None,
         read_bytes=units_read * NVME_DATA_UNIT_BYTES if units_read is not None else None,
-        media_errors=_int(props.get("Media Errors")),
-        error_log_entries=_int(props.get("Number of Error Info Log Entries")),
-        available_spare_pct=parse_number(props.get("Available Spare")),
-        available_spare_threshold_pct=parse_number(props.get("Available Spare Threshold")),
+        media_errors=as_int(record.get("mediaerrors")),
+        error_log_entries=as_int(record.get("numberoferrorinfologentries")),
+        available_spare_pct=as_number(record.get("availablespare")),
+        available_spare_threshold_pct=as_number(record.get("availablesparethreshold")),
         critical_warnings=warnings,
     )
-    return reading, props
 
 
-# Native SMART parameters that are unambiguous across drives. The remaining
-# ones (reallocated sectors, sector counts, power-on hours) are reported as
-# normalized values on some drives and raw values on others, so they are kept
-# as raw data only until verified against real output.
-_HEALTH_OK = {"OK"}
+def parse_native_smart(rows: list[Record], kind: DiskKind, logical_block_size: int | None = None) -> Reading:
+    """``esxcli storage core device smart get -d <device>``.
 
+    For ATA drives ``Value``/``Worst``/``Threshold`` are the *normalized*
+    SMART values (a Samsung reports ``Drive Temperature 63`` at 37 °C), so
+    real numbers come from the ``Raw`` column, which ESXi 8 prints. NVMe rows
+    have no worst/raw and their ``Value`` is the real number.
+    """
+    by_name = {norm_key(as_str(row.get("parameter"))): row for row in rows}
 
-def parse_native_smart(text: str) -> tuple[Reading, dict[str, dict[str, str]]]:
-    """``esxcli storage core device smart get -d <device>`` -> reading + raw table."""
-    rows = {row.get("Parameter", ""): row for row in parse_table(text) if row.get("Parameter")}
-    health = rows.get("Health Status", {}).get("Value")
-    wearout = parse_number(rows.get("Media Wearout Indicator", {}).get("Value"))
-    reading = Reading(
-        health_passed=None if not health or health.upper() == "N/A" else health.upper() in _HEALTH_OK,
-        temperature_c=parse_number(rows.get("Drive Temperature", {}).get("Value")),
-        temperature_limit_c=parse_number(rows.get("Driver Rated Max Temperature", {}).get("Value")),
-        # Media Wearout Indicator is a normalized 100 (new) .. 0 (worn out) value.
-        life_used_pct=None if wearout is None else max(0.0, 100.0 - wearout),
+    def normalized(row: Record) -> bool:
+        return as_number(row.get("worst")) is not None
+
+    def counter(name: str) -> int | None:
+        row = by_name.get(name)
+        if row is None:
+            return None
+        raw = as_int(row.get("raw"))
+        if raw is not None:
+            return raw
+        # Without a raw value, only a non-normalized value is a real count.
+        return None if normalized(row) else as_int(row.get("value"))
+
+    temperature = None
+    if row := by_name.get("drivetemperature"):
+        raw = as_int(row.get("raw"))
+        if raw is not None:
+            temperature = float(raw & 0xFF)  # vendors pack min/max into the upper bytes
+        elif not normalized(row):
+            temperature = as_number(row.get("value"))
+
+    life_used = None
+    if kind is not DiskKind.HDD and (row := by_name.get("mediawearoutindicator")):
+        wearout = as_number(row.get("value"))  # normalized: 100 new .. 0 worn out
+        life_used = None if wearout is None else max(0.0, 100.0 - wearout)
+
+    health = as_str(by_name.get("healthstatus", {}).get("value")).upper()
+    block = logical_block_size or 512
+    written = counter("writesectorstotcount")
+    read = counter("readsectorstotcount")
+
+    failing = []
+    for row in rows:
+        value, threshold = as_number(row.get("value")), as_number(row.get("threshold"))
+        if normalized(row) and value is not None and threshold and value <= threshold:
+            failing.append(as_str(row.get("parameter")))
+
+    return Reading(
+        health_passed=None if health in {"", "N/A", "UNKNOWN"} else health == "OK",
+        temperature_c=temperature,
+        power_on_hours=counter("poweronhours"),
+        power_cycles=counter("powercyclecount"),
+        life_used_pct=life_used,
+        written_bytes=written * block if written is not None else None,
+        read_bytes=read * block if read is not None else None,
+        # NVMe rows report a synthesized 0 here; their spare/media data comes from the NVMe log.
+        reallocated_sectors=counter("reallocatedsectorcount") if kind is not DiskKind.NVME else None,
+        pending_sectors=counter("pendingsectorreallocationcount"),
+        offline_uncorrectable=counter("uncorrectablesectorcount"),
+        reported_uncorrectable=counter("uncorrectableerrorcount"),
+        failing_attributes=failing,
     )
-    return reading, rows

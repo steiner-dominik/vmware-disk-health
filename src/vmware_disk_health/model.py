@@ -47,6 +47,8 @@ class DiskInfo(BaseModel):
     kind: DiskKind = DiskKind.HDD
     protocol: str = "ata"  # ata | nvme | sas
     is_boot: bool = False
+    logical_block_size: int | None = None
+    format_type: str = ""  # 512n, 512e, 4Kn as reported by ESXi
     nvme_adapter: str | None = None
 
 
@@ -76,6 +78,8 @@ class Reading(BaseModel):
     available_spare_pct: float | None = None
     available_spare_threshold_pct: float | None = None
     critical_warnings: list[str] = Field(default_factory=list)
+    # ATA attributes whose normalized value is at or below the vendor threshold.
+    failing_attributes: list[str] = Field(default_factory=list)
 
     @property
     def life_remaining_pct(self) -> float | None:
@@ -141,6 +145,7 @@ class HostResult(BaseModel):
     error: str | None = None
     esxi_version: str | None = None
     smartctl_path: str | None = None
+    esxcli_json: bool = False
     collected_at: float = 0.0
     duration_s: float = 0.0
     disks: list[DiskResult] = Field(default_factory=list)

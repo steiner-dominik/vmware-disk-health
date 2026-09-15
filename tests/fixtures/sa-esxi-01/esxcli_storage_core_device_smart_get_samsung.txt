@@ -1,0 +1,14 @@
+Parameter                  Value  Threshold  Worst  Raw
+-------------------------  -----  ---------  -----  ---
+Health Status              OK     N/A        N/A    N/A
+Media Wearout Indicator    77     0          77     115
+Write Error Count          100    10         100    0
+Power-on Hours             84     0          84     80031
+Power Cycle Count          99     0          99     230
+Reallocated Sector Count   100    10         100    0
+Drive Temperature          63     0          48     37
+Write Sectors TOT Count    99     0          99     26147738819
+Initial Bad Block Count    100    10         100    0
+Program Fail Count         100    10         100    0
+Erase Fail Count           100    10         100    0
+Uncorrectable Error Count  100    0          100    0
