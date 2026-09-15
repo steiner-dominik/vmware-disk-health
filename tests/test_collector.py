@@ -23,7 +23,7 @@ def sa_esxi_01(*, json: bool, smartctl: bool) -> dict:
     responses = {
         "vmware -vl": f("sa-esxi-01/vmware_-vl.txt"),
         "esxcli storage core device list": f("sa-esxi-01/esxcli_storage_core_device_list.txt"),
-        "esxcli storage core device capacity list": f("synthetic/esxcli_storage_core_device_capacity_list.txt"),
+        "esxcli storage core device capacity list": f("sa-esxi-01/esxcli_storage_core_device_capacity_list.txt"),
         "esxcli storage core path list": f("sa-esxi-01/esxcli_storage_core_path_list.txt"),
         "esxcli nvme device get -A vmhba4": f("sa-esxi-01/esxcli_nvme_device_get_-A_vmhba4.txt"),
         "esxcli nvme device log smart get -A vmhba4": f("sa-esxi-01/esxcli_nvme_device_log_smart_get_-A_vmhba4.txt"),
@@ -34,6 +34,10 @@ def sa_esxi_01(*, json: bool, smartctl: bool) -> dict:
     }
     if json:
         responses[f"{ESXCLI_JSON} system version get"] = f("sa-esxi-01/esxcli_json_system_version_get.json")
+        responses[f"{ESXCLI_JSON} storage core device list"] = f("sa-esxi-01/esxcli_json_storage_core_device_list.json")
+        responses[f"{ESXCLI_JSON} storage core device capacity list"] = f(
+            "sa-esxi-01/esxcli_json_storage_core_device_capacity_list.json"
+        )
         responses[f"{ESXCLI_JSON} nvme device log smart get -A vmhba4"] = f(
             "sa-esxi-01/esxcli_json_nvme_device_log_smart_get_-A_vmhba4.json"
         )
@@ -94,8 +98,9 @@ def test_json_formatter_is_used_when_available_with_text_fallback():
     assert result.esxi_version == "VMware ESXi 8.0.3 Update 3 build-25205845"
     assert f"{ESXCLI_JSON} nvme device log smart get -A vmhba4" in transport.commands
     assert "esxcli nvme device log smart get -A vmhba4" not in transport.commands
+    assert "esxcli storage core device list" not in transport.commands
     # Commands without a JSON capture fell back to text and still produced data.
-    assert "esxcli storage core device list" in transport.commands
+    assert "esxcli storage core path list" in transport.commands
     assert len(disks) == 7
     assert disks[OPTANE].reading.power_on_hours == 25542
 

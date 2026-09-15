@@ -3,6 +3,8 @@ name = "vmware-disk-health"
 version = "0.1.0"
 description = "SMART and SSD health monitoring for VMware ESXi hosts, standalone or as a Home Assistant app"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Dominik Steiner", email = "contact@dominik.st" }
 ]

@@ -46,25 +46,6 @@ def test_device_list_decodes_identity_from_t10_id():
     assert nvme.protocol == "nvme"
 
 
-def test_device_list_from_json_records():
-    # Same parser, records shaped like the JSON formatter's keys.
-    records = [
-        {
-            "Device": "t10.ATA_____CT4000MX500SSD1_________________________2323E6DF2809________",
-            "DeviceType": "Direct-Access ",
-            "DevfsPath": "/vmfs/devices/disks/t10.ATA_____CT4000MX500SSD1_________________________2323E6DF2809________",
-            "IsLocal": True,
-            "IsUSB": False,
-            "IsSSD": True,
-            "Model": "CT4000MX500SSD1 ",
-            "Vendor": "ATA     ",
-            "Size": 3815447,
-        }
-    ]
-    [disk] = esxcli.parse_device_list(esxcli.decode_json(json.dumps(records), Shape.BLOCKS))
-    assert (disk.kind, disk.serial, disk.model) == (DiskKind.SSD, "2323E6DF2809", "CT4000MX500SSD1")
-
-
 @pytest.mark.parametrize(
     ("device_id", "serial"),
     [
@@ -179,10 +160,39 @@ def test_native_smart_attribute_below_threshold():
     assert esxcli.parse_native_smart(rows, DiskKind.HDD).failing_attributes == ["Reallocated Sector Count"]
 
 
-def test_capacity_list():
-    # Synthetic sample in the documented layout, until a real capture exists.
-    capacities = esxcli.parse_capacity_list(text("synthetic/esxcli_storage_core_device_capacity_list.txt", Shape.TABLE))
-    assert capacities["t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS"] == (512, "512e")
+def test_capacity_list_json_equals_text():
+    from_text = esxcli.parse_capacity_list(text(SA + "esxcli_storage_core_device_capacity_list.txt", Shape.TABLE))
+    from_json = esxcli.parse_capacity_list(
+        esxcli.decode_json(fixture_text(SA + "esxcli_json_storage_core_device_capacity_list.json"), Shape.TABLE)
+    )
+    assert from_json == from_text
+    assert from_text["t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS"] == (512, "512e")
+    assert from_text["t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____"] == (512, "512n")
+
+
+def test_device_list_json_equals_text():
+    from_json = esxcli.parse_device_list(
+        esxcli.decode_json(fixture_text(SA + "esxcli_json_storage_core_device_list.json"), Shape.BLOCKS)
+    )
+    assert from_json == device_list()
+
+
+def test_native_smart_json_equals_text():
+    rows = esxcli.decode_json(fixture_text(SA + "esxcli_json_storage_core_device_smart_get_samsung.json"), Shape.TABLE)
+    from_json = esxcli.parse_native_smart(rows, DiskKind.SSD)
+    from_text = native(SA + "esxcli_storage_core_device_smart_get_samsung.txt", DiskKind.SSD)
+    # Captured a few minutes apart: only the running counters moved.
+    assert from_json.power_on_hours == 80032 and from_json.written_bytes == 26147754279 * 512
+    assert from_json.model_copy(update={"power_on_hours": 0, "written_bytes": 0}) == from_text.model_copy(
+        update={"power_on_hours": 0, "written_bytes": 0}
+    )
+
+
+def test_nvme_data_units_match_manual_tbw_calculation():
+    # sa-esxi-01: awk '{printf "%.2f TBW", ($4 * 512 * 1000) / 10^12}' printed 710.97 TBW / 646.62 TiBW.
+    reading = esxcli.parse_nvme_smart_log(text(SA + "esxcli_nvme_device_log_smart_get_-A_vmhba4.txt", Shape.RECORD))
+    assert f"{reading.written_bytes / 10**12:.2f}" == "710.97"
+    assert f"{reading.written_bytes / 1024**4:.2f}" == "646.62"
 
 
 def test_smartctl_seagate_hdd():

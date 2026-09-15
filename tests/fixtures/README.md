@@ -11,7 +11,3 @@ The smartctl JSON files and `esxcli_nvme_device_get_*` are trimmed: bulky
 entries the parsers never read (`ata_log_directory`, the SCT temperature
 history, selective self-test log, SATA phy counters, SGL/crypto capability
 flags) were shortened or removed. All values that were kept are unchanged.
-
-- `synthetic/` — hand-written in the documented format because no real capture
-  exists yet. Replace each with real output as soon as one is available; the
-  tests using them only prove the parser handles the *documented* layout.
