@@ -1,0 +1,11 @@
+services:
+  vmware-disk-health:
+    image: ghcr.io/steiner-dominik/vmware-disk-health:latest
+    container_name: vmware-disk-health
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Keeps the SSH key, the pinned host keys and the history database.
+      - ./data:/data
+      - ./config.yaml:/data/config.yaml:ro

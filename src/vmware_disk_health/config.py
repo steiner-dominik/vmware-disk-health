@@ -84,6 +84,54 @@ class DiskOverride(BaseModel):
         return any(fnmatch(candidate, self.match) for candidate in (info.device_id, info.serial, info.model) if candidate)
 
 
+class MqttConfig(BaseModel):
+    """Broker for Home Assistant MQTT discovery.
+
+    In the Home Assistant app the broker is taken from the Supervisor unless a
+    host is set here.
+    """
+
+    enabled: bool = True
+    host: str = ""
+    port: int = 1883
+    username: str = ""
+    password: str = ""
+    tls: bool = False
+    discovery_prefix: str = "homeassistant"
+    base_topic: str = "vmware-disk-health"
+
+
+class AlertsConfig(BaseModel):
+    """Notifications sent by the app itself.
+
+    In Home Assistant the MQTT entities are usually the better trigger; these
+    channels exist mainly for the standalone deployment.
+    """
+
+    enabled: bool = False
+    # "warning" also notifies about critical; "critical" only about critical.
+    min_severity: str = "warning"
+    notify_recovery: bool = True
+    notify_host_unreachable: bool = True
+    ntfy_url: str = ""  # full topic URL, e.g. https://ntfy.sh/my-disks
+    ntfy_token: str = ""
+    gotify_url: str = ""  # server URL, e.g. https://gotify.lan
+    gotify_token: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_tls: bool = True
+    smtp_from: str = ""
+    smtp_to: str = ""
+
+    @property
+    def severity_floor(self) -> int:
+        from .model import Severity
+
+        return Severity.CRITICAL if self.min_severity.lower() == "critical" else Severity.WARNING
+
+
 def default_data_dir() -> Path:
     if env := os.environ.get("VDH_DATA_DIR"):
         return Path(env)
@@ -97,6 +145,8 @@ class Settings(BaseModel):
     command_timeout_seconds: int = Field(default=90, ge=10)
     thresholds: Thresholds = Field(default_factory=Thresholds)
     disk_overrides: list[DiskOverride] = Field(default_factory=list)
+    mqtt: MqttConfig = Field(default_factory=MqttConfig)
+    alerts: AlertsConfig = Field(default_factory=AlertsConfig)
     data_dir: Path = Field(default_factory=default_data_dir)
     log_level: str = "info"
     # auto follows the browser; each browser can still switch in the UI.

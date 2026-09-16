@@ -104,3 +104,13 @@ def test_insights_projection_from_history():
 
     series = written_per_day_series(history)
     assert [round(p["bytes"] / 10**12) for p in series] == [29, 1]
+
+
+def test_version_is_consistent():
+    import re
+    from pathlib import Path
+
+    from vmware_disk_health import __version__
+
+    pyproject = (Path(__file__).parents[1] / "pyproject.toml").read_text()
+    assert re.search(r'^version = "(.+)"', pyproject, re.M).group(1) == __version__

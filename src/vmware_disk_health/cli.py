@@ -77,7 +77,7 @@ def _serve(settings: Settings, args: argparse.Namespace) -> int:
     import uvicorn
 
     from .api import create_app
-    from .service import Monitor
+    from .service import Integrations, Monitor
 
     logging.getLogger().setLevel(logging.DEBUG if args.verbose else getattr(logging, settings.log_level.upper(), logging.INFO))
     if not args.verbose:
@@ -85,7 +85,8 @@ def _serve(settings: Settings, args: argparse.Namespace) -> int:
     keys = KeyStore(settings.data_dir)
     keys.public_key()  # generate the key on first start, so the setup page can show it right away
     monitor = Monitor(settings, Storage(settings.data_dir / "history.db"), keys)
-    uvicorn.run(create_app(settings, monitor), host=args.bind, port=args.port, log_level="warning", proxy_headers=True)
+    app = create_app(settings, monitor, integrations=Integrations(settings, monitor))
+    uvicorn.run(app, host=args.bind, port=args.port, log_level="warning", proxy_headers=True)
     return 0
 
 

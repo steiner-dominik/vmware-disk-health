@@ -9,10 +9,12 @@ from collections.abc import Awaitable, Callable
 
 import asyncssh
 
+from .alerts import Notifier
 from .collector import Connect, HostCollector, collect_all
 from .config import HostConfig, Settings
 from .evaluate import RISING_WINDOW_DAYS
 from .model import HostResult
+from .mqtt import MqttPublisher, supervisor_broker
 from .storage import StatusChange, Storage
 from .transport import KeyStore, SSHTransport, host_id
 
@@ -141,3 +143,54 @@ class Monitor:
             return asyncssh.import_public_key(pinned).get_fingerprint()
         except (asyncssh.KeyImportError, ValueError):
             return None
+
+
+class Integrations:
+    """Optional outputs: Home Assistant entities over MQTT, and notifications."""
+
+    def __init__(self, settings: Settings, monitor: Monitor):
+        self.settings = settings
+        self.monitor = monitor
+        self.publisher: MqttPublisher | None = None
+        self.notifier: Notifier | None = None
+        self.mqtt_error: str | None = None
+
+    async def start(self) -> None:
+        config = self.settings.mqtt
+        if config.enabled:
+            if not config.host:
+                # As a Home Assistant app, ask the Supervisor for the broker.
+                discovered = await asyncio.to_thread(supervisor_broker)
+                if discovered:
+                    config = discovered.model_copy(
+                        update={"discovery_prefix": config.discovery_prefix, "base_topic": config.base_topic}
+                    )
+            if config.host:
+                self.publisher = MqttPublisher(self.settings, config)
+                try:
+                    await self.publisher.start()
+                    self.monitor.listeners.append(self.publisher.publish)
+                except Exception as exc:  # noqa: BLE001 - a broken broker must not stop monitoring
+                    self.mqtt_error = str(exc)
+                    log.warning("MQTT disabled: %s", exc)
+                    self.publisher = None
+            else:
+                self.mqtt_error = "no broker configured"
+        notifier = Notifier(self.settings.alerts)
+        if notifier.configured:
+            self.notifier = notifier
+            self.monitor.listeners.append(notifier.on_results)
+
+    async def stop(self) -> None:
+        if self.publisher:
+            await self.publisher.stop()
+
+    def status(self) -> dict:
+        client = self.publisher.client if self.publisher else None
+        return {
+            "mqtt_enabled": self.settings.mqtt.enabled,
+            "mqtt_connected": bool(client and client.is_connected()),
+            "mqtt_broker": f"{self.publisher.config.host}:{self.publisher.config.port}" if self.publisher else None,
+            "mqtt_error": self.mqtt_error,
+            "alerts_enabled": bool(self.notifier),
+        }

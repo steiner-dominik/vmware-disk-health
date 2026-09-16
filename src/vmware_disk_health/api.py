@@ -14,7 +14,7 @@ from . import __version__, insights, metrics
 from .config import Settings
 from .evaluate import temperature_limits
 from .model import DiskResult, Severity
-from .service import Monitor
+from .service import Integrations, Monitor
 from .transport import host_id
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -54,15 +54,21 @@ def _summary(disk: DiskResult, last_seen: float, host_success: float | None, nam
     }
 
 
-def create_app(settings: Settings, monitor: Monitor, *, start_scheduler: bool = True) -> FastAPI:
+def create_app(
+    settings: Settings, monitor: Monitor, *, start_scheduler: bool = True, integrations: Integrations | None = None
+) -> FastAPI:
     storage = monitor.storage
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        if integrations:
+            await integrations.start()
         if start_scheduler:
             monitor.start()
         yield
         await monitor.stop()
+        if integrations:
+            await integrations.stop()
 
     app = FastAPI(title="VMware Disk Health", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None)
 
@@ -174,6 +180,7 @@ def create_app(settings: Settings, monitor: Monitor, *, start_scheduler: bool = 
             "public_key": key,
             "authorize_command": f"echo '{key}' >> /etc/ssh/keys-root/authorized_keys",
             "ha_mode": settings.ha_mode,
+            "integrations": integrations.status() if integrations else {},
             "hosts": [
                 {
                     "name": h.name,

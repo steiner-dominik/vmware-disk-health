@@ -28,6 +28,35 @@ thresholds:
   temp_nvme_crit_c: 80
   use_drive_temp_limit: true
 
+# Home Assistant entities. Point this at your broker; in the Home Assistant app
+# the Supervisor provides it automatically and nothing needs to be set here.
+mqtt:
+  enabled: false
+  host: ""
+  port: 1883
+  username: ""
+  password: ""
+  tls: false
+  discovery_prefix: homeassistant
+  base_topic: vmware-disk-health
+
+# Notifications sent by the app itself. With Home Assistant, automate on the
+# entities instead.
+alerts:
+  enabled: false
+  min_severity: warning   # or "critical"
+  notify_recovery: true
+  notify_host_unreachable: true
+  # ntfy_url: https://ntfy.sh/my-disk-alerts
+  # gotify_url: https://gotify.lan
+  # gotify_token: ""
+  # smtp_host: smtp.example.com
+  # smtp_port: 587
+  # smtp_username: ""
+  # smtp_password: ""
+  # smtp_from: disks@example.com
+  # smtp_to: me@example.com
+
 disk_overrides: []
 #  - match: "S3F2NWBHB56997P"   # serial, device id or model, globs allowed
 #    name: "Boot SSD"

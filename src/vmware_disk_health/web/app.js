@@ -1017,6 +1017,30 @@ async function renderSetup() {
     !data.ha_mode && data.hosts.some((host) => host.host_key) && h("p", { class: "muted mono", text: t("setup.forget.cli", { host: "<name>" }) }),
   );
 
+  const integ = data.integrations || {};
+  const mqttText = !integ.mqtt_enabled
+    ? t("setup.mqtt.off")
+    : integ.mqtt_error
+      ? t("setup.mqtt.error", { error: integ.mqtt_error })
+      : t(integ.mqtt_connected ? "setup.mqtt.connected" : "setup.mqtt.connecting", { broker: integ.mqtt_broker || DASH });
+  const integrations = h(
+    "section",
+    { class: "section" },
+    h("div", { class: "section-head" }, h("h2", { text: t("setup.integrations.title") })),
+    h(
+      "div",
+      { class: "card" },
+      h(
+        "dl",
+        { class: "kv" },
+        h("dt", { text: t("setup.mqtt") }),
+        h("dd", {}, h("span", { class: `status status-${integ.mqtt_connected ? "ok" : integ.mqtt_enabled ? "warning" : "unknown"}` }, icon(integ.mqtt_connected ? "ok" : integ.mqtt_enabled ? "warning" : "unknown")), " ", mqttText),
+        h("dt", { text: t("setup.alerts") }),
+        h("dd", { text: t(integ.alerts_enabled ? "setup.alerts.on" : "setup.alerts.off") }),
+      ),
+    ),
+  );
+
   const th = data.thresholds;
   const settingsRows = [
     [t("setup.settings.interval"), t("setup.settings.minutes", { n: data.poll_interval_minutes })],
@@ -1035,7 +1059,7 @@ async function renderSetup() {
     h("p", { class: "muted" }, ...interpolate(t("setup.metrics", { link: LINK_MARK }), metricsLink)),
   );
 
-  target.replaceChildren(h("h1", { text: t("nav.setup") }), ssh, hosts, settings);
+  target.replaceChildren(h("h1", { text: t("nav.setup") }), ssh, hosts, integrations, settings);
 }
 
 // Split a translated sentence at its placeholder so a node (a link) can sit inside it.

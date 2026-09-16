@@ -4,9 +4,8 @@ SMART and SSD health monitoring for VMware ESXi hosts: wear, data written,
 temperatures and error counters of every local SATA and NVMe disk, with
 history and alerting. Runs standalone in Docker or as a Home Assistant app.
 
-> **Status:** early development. Collector, history, web UI, JSON API and
-> Prometheus metrics work; MQTT discovery for Home Assistant, notifications and
-> the container image are next.
+> **Status:** first release. Collector, history, web UI, JSON API, Prometheus
+> metrics, Home Assistant entities and notifications work. Feedback welcome.
 
 ## How it works
 
@@ -80,6 +79,31 @@ through ingress, which handles authentication.
 | `POST /api/hosts/{name}/test` | test the SSH connection |
 | `GET /metrics` | Prometheus metrics (`vmware_disk_health_*`) |
 | `GET /healthz` | 200 while the scheduler runs |
+
+## Home Assistant
+
+Install it as an app from
+[steiner-dominik/home-assistant-apps](https://github.com/steiner-dominik/home-assistant-apps):
+the panel runs behind ingress, and with an MQTT broker (the Mosquitto app) every
+disk becomes a device with a status sensor, a problem binary sensor and one
+sensor per value the drive reports — `binary_sensor.<disk>_problem` is the one
+to automate on. Each host gets **Reachable**, **Last successful poll**, **Disks**
+and **Disks with problems**.
+
+The same entities work standalone: set `mqtt.host` in `config.yaml`.
+
+## Notifications
+
+For the standalone deployment the app can notify on its own when a disk changes
+status — ntfy, Gotify or email, configured under `alerts`. Recoveries and
+unreachable hosts are reported too. In Home Assistant, automate on the entities
+instead.
+
+## Docker
+
+```bash
+docker compose up -d   # see docker-compose.yml; the UI is on port 8080
+```
 
 ## Development
 
