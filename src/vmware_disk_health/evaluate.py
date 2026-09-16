@@ -28,8 +28,15 @@ def temperature_limits(result: DiskResult, thresholds: Thresholds) -> tuple[floa
     return warn, crit
 
 
-def evaluate(result: DiskResult, thresholds: Thresholds, baseline: Reading | None = None) -> DiskResult:
-    """Evaluate ``result`` in place; ``baseline`` is the reading from about a week ago."""
+def evaluate(
+    result: DiskResult, thresholds: Thresholds, baseline: Reading | None = None, previous: Reading | None = None
+) -> DiskResult:
+    """Evaluate ``result`` in place.
+
+    ``baseline`` is the reading from about a week ago, which counters are
+    compared against; ``previous`` is the one from the last poll, which decides
+    whether a pending sector is a blip or is really there.
+    """
     r = result.reading
     findings: list[Finding] = []
 
@@ -61,7 +68,14 @@ def evaluate(result: DiskResult, thresholds: Thresholds, baseline: Reading | Non
 
     base = baseline or Reading()
     if r.pending_sectors:
-        add("pending_sectors", Severity.CRITICAL, f"{r.pending_sectors} pending sectors", r.pending_sectors)
+        n = r.pending_sectors
+        # Drives report a pending sector and clear it again once the sector is
+        # re-read successfully, so one sighting is a warning and only a count
+        # that is still there at the next poll is critical.
+        if previous is not None and previous.pending_sectors:
+            add("pending_sectors_persisting", Severity.CRITICAL, f"{n} pending sectors, still there at the next poll", n)
+        else:
+            add("pending_sectors", Severity.WARNING, f"{n} pending sectors", n)
     if r.offline_uncorrectable:
         n = r.offline_uncorrectable
         add("offline_uncorrectable", Severity.CRITICAL, f"{n} offline uncorrectable sectors", n)

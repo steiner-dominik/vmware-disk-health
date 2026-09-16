@@ -110,6 +110,10 @@ class Storage:
             return self.previous_reading(disk_key)
         return _reading_from_row(row)
 
+    def readings_before(self, disk_key: str, since: float) -> tuple[Reading | None, Reading | None]:
+        """The baseline from ``since`` and the reading from the last poll."""
+        return self.baseline_reading(disk_key, since), self.previous_reading(disk_key)
+
     def disk(self, disk_key: str) -> DiskResult | None:
         row = self.db.execute("SELECT latest_json FROM disks WHERE key = ?", (disk_key,)).fetchone()
         return DiskResult.model_validate_json(row["latest_json"]) if row else None

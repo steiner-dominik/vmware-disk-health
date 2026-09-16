@@ -91,7 +91,7 @@ class Monitor:
             self.last_poll_started = time.time()
             try:
                 since = time.time() - RISING_WINDOW_DAYS * 86400
-                results = await collect_all(self.settings, self.connect, lambda key: self.storage.baseline_reading(key, since))
+                results = await collect_all(self.settings, self.connect, lambda key: self.storage.readings_before(key, since))
                 for host in results:
                     changes = self.storage.save(host)
                     for change in changes:

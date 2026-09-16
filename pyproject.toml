@@ -1,6 +1,6 @@
 [project]
 name = "vmware-disk-health"
-version = "26.09.17"
+version = "26.09.18"
 description = "SMART and SSD health monitoring for VMware ESXi hosts, standalone or as a Home Assistant app"
 readme = "README.md"
 license = "MIT"

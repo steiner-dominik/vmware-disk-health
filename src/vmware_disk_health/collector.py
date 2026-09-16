@@ -31,8 +31,9 @@ PER_HOST_CONCURRENCY = 3
 ESXCLI_JSON = "esxcli --debug --formatter=json"
 
 Connect = Callable[[HostConfig], Awaitable[Transport]]
-# Reading of a disk (by key) to detect increasing error counters against.
-Baseline = Callable[[str], Reading | None]
+# Readings of a disk (by key): the one from a week ago that counters are
+# compared against, and the one from the last poll.
+Baseline = Callable[[str], tuple[Reading | None, Reading | None]]
 
 
 class CommandFailed(Exception):
@@ -193,7 +194,8 @@ class HostCollector:
         host_result.smartctl_path = await self.find_smartctl()
         results = await asyncio.gather(*(self.collect_disk(d, host_result.smartctl_path) for d in disks))
         for result in results:
-            evaluate(result, self.settings.thresholds_for(result.info), baseline(result.key))
+            before, previous = baseline(result.key)
+            evaluate(result, self.settings.thresholds_for(result.info), before, previous)
         host_result.disks = list(results)
         host_result.ok = True
         host_result.duration_s = round(time.time() - started, 2)

@@ -59,7 +59,7 @@ async def _collect(settings: Settings, args: argparse.Namespace) -> int:
     since = time.time() - RISING_WINDOW_DAYS * 86400
 
     def baseline(key: str):
-        return storage.baseline_reading(key, since) if storage else None
+        return storage.readings_before(key, since) if storage else (None, None)
 
     results = await collect_all(settings, connect, baseline)
     if storage:

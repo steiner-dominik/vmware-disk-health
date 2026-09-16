@@ -40,10 +40,12 @@ def test_discovery_only_covers_values_the_drive_reports():
     assert "life_used_pct" not in topics and "crc_errors" not in topics
 
     samsung = {topic: payload for topic, payload in mqtt.disk_messages(disks[SAMSUNG], config)}
-    life = samsung["homeassistant/sensor/vdh_t10_ata_samsung_ssd_750_evo_120gb_s3f2nwbhb56997p/life_remaining_pct/config"]
+    life = samsung["homeassistant/sensor/vdh_s3f2nwbhb56997p/life_remaining_pct/config"]
     assert life["unit_of_measurement"] == "%" and life["state_class"] == "measurement"
     assert life["availability_topic"] == "vmware-disk-health/status"
     assert life["device"]["serial_number"] == "S3F2NWBHB56997P"
+    # Several identical models per host: the serial keeps the devices apart.
+    assert life["device"]["name"] == "Samsung SSD 750 EVO 120GB S3F2NWBHB56997P"
     assert life["device"]["via_device"] == "vmware_disk_health_host_sa_esxi_01"
     assert life["has_entity_name"] is True and life["name"] == "Life remaining"
 
@@ -103,7 +105,7 @@ def test_disk_override_renames_the_device():
     host, _ = collected()
     asyncio.run(publisher.publish(host))
     config = next(
-        json.loads(p) for t, p, _ in publisher.client.published if t.endswith(f"vdh_{mqtt.slug(SAMSUNG)}/status/config")
+        json.loads(p) for t, p, _ in publisher.client.published if t.endswith("vdh_s3f2nwbhb56997p/status/config")
     )
     assert config["device"]["name"] == "Boot SSD"
 
@@ -132,3 +134,30 @@ def test_supervisor_broker(monkeypatch):
 
 def test_fixtures_are_intact():
     assert "Data Units Written" in fixture_text("sa-esxi-01/esxcli_nvme_device_log_smart_get_-A_vmhba4.txt")
+
+
+def test_entities_of_the_old_naming_scheme_are_withdrawn():
+    host, disks = collected()
+    publisher = mqtt.MqttPublisher(Settings(), MqttConfig())
+    publisher.client = FakeClient()
+    asyncio.run(publisher.publish(host))
+    legacy = f"homeassistant/sensor/vdh_{mqtt.slug(SAMSUNG)}/temperature_c/config"
+    assert (legacy, "", True) in publisher.client.published  # empty payload removes the entity
+    assert any(t == "homeassistant/sensor/vdh_s3f2nwbhb56997p/temperature_c/config" for t in publisher.client.topics())
+
+    publisher.client.published.clear()
+    asyncio.run(publisher.publish(host))
+    assert not any("vdh_t10_ata" in topic for topic in publisher.client.topics())  # only once
+
+
+def test_disks_sharing_a_serial_keep_separate_entities():
+    host, disks = collected()
+    twin = disks[SAMSUNG].model_copy(deep=True)
+    twin.info.device_id = "t10.ATA_____Other_disk______________________________S3F2NWBHB56997P_____"
+    host.disks = [disks[SAMSUNG], twin]
+    publisher = mqtt.MqttPublisher(Settings(), MqttConfig())
+    publisher.client = FakeClient()
+    asyncio.run(publisher.publish(host))
+    uniques = {t.split("/")[2] for t in publisher.client.topics() if t.startswith("homeassistant/")}
+    assert "vdh_s3f2nwbhb56997p" in uniques
+    assert any(u.startswith("vdh_t10_ata_other_disk") for u in uniques)

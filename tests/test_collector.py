@@ -51,7 +51,7 @@ def sa_esxi_01(*, json: bool, smartctl: bool) -> dict:
     return responses
 
 
-def collect(responses: dict, host: HostConfig | None = None, baseline=lambda key: None):
+def collect(responses: dict, host: HostConfig | None = None, baseline=lambda key: (None, None)):
     host = host or HostConfig(name="sa-esxi-01", address="10.0.0.1")
     transport = FixtureTransport(responses)
 
@@ -138,7 +138,7 @@ def test_unreachable_host_is_reported_not_raised():
     async def connect(_host):
         raise OSError("Connection refused")
 
-    result = asyncio.run(collect_host(host, Settings(hosts=[host], data_dir="/tmp/unused"), connect, lambda key: None))
+    result = asyncio.run(collect_host(host, Settings(hosts=[host], data_dir="/tmp/unused"), connect, lambda key: (None, None)))
     assert not result.ok
     assert "refused" in result.error
 
@@ -151,7 +151,12 @@ def test_evaluate_thresholds():
     t = Settings().thresholds
     assert evaluate(_disk(DiskKind.SSD, life_used_pct=85), t).status is Severity.WARNING
     assert evaluate(_disk(DiskKind.SSD, life_used_pct=95), t).status is Severity.CRITICAL
-    assert evaluate(_disk(DiskKind.HDD, pending_sectors=1), t).status is Severity.CRITICAL
+    # A pending sector is a warning once, and critical when it is still there next poll.
+    assert evaluate(_disk(DiskKind.HDD, pending_sectors=1), t).status is Severity.WARNING
+    still = evaluate(_disk(DiskKind.HDD, pending_sectors=1), t, previous=Reading(pending_sectors=1))
+    assert still.status is Severity.CRITICAL and still.findings[0].code == "pending_sectors_persisting"
+    gone = evaluate(_disk(DiskKind.HDD, pending_sectors=1), t, previous=Reading(pending_sectors=0))
+    assert gone.status is Severity.WARNING
     assert evaluate(_disk(DiskKind.HDD, reallocated_sectors=4), t).status is Severity.WARNING
     rising = evaluate(_disk(DiskKind.HDD, reallocated_sectors=8), t, baseline=Reading(reallocated_sectors=4))
     assert rising.status is Severity.CRITICAL

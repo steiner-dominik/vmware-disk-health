@@ -76,10 +76,11 @@ def slug(value: str) -> str:
 
 
 def _config(entity: Entity, unique_prefix: str, state_topic: str, device: dict, base_topic: str) -> dict:
+    # No object_id: with has_entity_name, Home Assistant builds the entity id
+    # from the device name and the entity name, which is what we want.
     payload = {
         "name": entity.name,
         "unique_id": f"{unique_prefix}_{entity.key}",
-        "object_id": f"{unique_prefix}_{entity.key}",
         "state_topic": state_topic,
         "value_template": f"{{{{ value_json.{entity.key} }}}}",
         "availability_topic": f"{base_topic}/status",
@@ -115,11 +116,31 @@ def host_device(host: HostResult | str, version: str | None = None) -> dict:
     return device
 
 
+def disk_name(disk: DiskResult, display_name: str | None = None) -> str:
+    """Model and serial: several identical models in one host must stay apart."""
+    if display_name:
+        return display_name
+    info = disk.info
+    if info.model and info.serial:
+        return f"{info.model} {info.serial}"
+    return info.model or info.serial or disk.key
+
+
+def disk_unique(disk: DiskResult) -> str:
+    """Entity id prefix. The serial keeps it readable; the device id is the fallback."""
+    return f"vdh_{slug(disk.info.serial)}" if disk.info.serial else f"vdh_{slug(disk.key)}"
+
+
+def legacy_disk_unique(disk: DiskResult) -> str:
+    """The scheme used up to 26.09.17, whose discovery configs have to be withdrawn."""
+    return f"vdh_{slug(disk.key)}"
+
+
 def disk_device(disk: DiskResult, display_name: str | None = None) -> dict:
     info = disk.info
     return {
         "identifiers": [f"vmware_disk_health_{slug(disk.key)}"],
-        "name": display_name or info.model or disk.key,
+        "name": disk_name(disk, display_name),
         "manufacturer": (info.vendor or "").strip() or None,
         "model": info.model or None,
         "serial_number": info.serial or None,
@@ -150,10 +171,12 @@ def disk_state(disk: DiskResult, missing: bool = False) -> dict:
     return state
 
 
-def disk_messages(disk: DiskResult, config: MqttConfig, display_name: str | None = None) -> list[tuple[str, dict]]:
+def disk_messages(
+    disk: DiskResult, config: MqttConfig, display_name: str | None = None, unique_prefix: str | None = None
+) -> list[tuple[str, dict]]:
     """Discovery configs for the values this drive actually reports."""
     base = config.base_topic
-    unique = f"vdh_{slug(disk.key)}"
+    unique = unique_prefix or disk_unique(disk)
     state_topic = f"{base}/disk/{slug(disk.key)}/state"
     device = disk_device(disk, display_name)
     state = disk_state(disk)
@@ -168,6 +191,12 @@ def disk_messages(disk: DiskResult, config: MqttConfig, display_name: str | None
             payload["json_attributes_topic"] = state_topic
         messages.append((f"{config.discovery_prefix}/{entity.component}/{unique}/{entity.key}/config", payload))
     return messages
+
+
+def legacy_disk_topics(disk: DiskResult, config: MqttConfig) -> list[str]:
+    """Discovery topics of the pre-26.09.18 entities, so they can be removed."""
+    unique = legacy_disk_unique(disk)
+    return [f"{config.discovery_prefix}/{e.component}/{unique}/{e.key}/config" for e in DISK_ENTITIES]
 
 
 def host_state(host: HostResult, disks: list[DiskResult]) -> dict:
@@ -228,6 +257,8 @@ class MqttPublisher:
         self.config = config
         self.client: mqtt.Client | None = None
         self._announced: set[str] = set()
+        self._retired: set[str] = set()
+        self._uniques: dict[str, str] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
 
     def _build(self) -> mqtt.Client:
@@ -265,6 +296,15 @@ class MqttPublisher:
         self.client.disconnect()
         self.client = None
 
+    def _unique_for(self, disk: DiskResult) -> str:
+        """Serial-based, unless two disks claim the same serial."""
+        unique = disk_unique(disk)
+        owner = self._uniques.setdefault(unique, disk.key)
+        if owner != disk.key:
+            log.warning("two disks report serial %r; using the device id for %s", disk.info.serial, disk.key)
+            return f"vdh_{slug(disk.key)}"
+        return unique
+
     def _publish(self, topic: str, payload, retain: bool = True) -> None:
         if not self.client:
             return
@@ -280,8 +320,15 @@ class MqttPublisher:
                 self._announced.add(topic)
         self._publish(f"{base}/host/{slug(host.name)}/state", host_state(host, host.disks))
         for disk in host.disks:
-            name = self.settings.override_for(disk.info)
-            for topic, payload in disk_messages(disk, self.config, name.name if name else None):
+            override = self.settings.override_for(disk.info)
+            unique = self._unique_for(disk)
+            if unique != legacy_disk_unique(disk) and disk.key not in self._retired:
+                # Withdraw the entities of the pre-26.09.18 naming scheme, so
+                # Home Assistant drops them instead of leaving duplicates behind.
+                for topic in legacy_disk_topics(disk, self.config):
+                    self._publish(topic, "")
+                self._retired.add(disk.key)
+            for topic, payload in disk_messages(disk, self.config, override.name if override else None, unique):
                 if topic not in self._announced:
                     self._publish(topic, payload)
                     self._announced.add(topic)
