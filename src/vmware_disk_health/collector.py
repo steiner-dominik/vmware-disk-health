@@ -174,7 +174,7 @@ class HostCollector:
 
         rows = await self.esxcli(f"storage core device smart get -d {shlex.quote(disk.device_id)}", Shape.TABLE)
         if rows:
-            readings.append(esxcli.parse_native_smart(rows, disk.kind, disk.logical_block_size))
+            readings.append(esxcli.parse_native_smart(rows, disk.kind, disk.logical_block_size, disk.model))
             result.sources.append("esxcli-smart")
             result.raw["esxcli_smart"] = rows
         else:

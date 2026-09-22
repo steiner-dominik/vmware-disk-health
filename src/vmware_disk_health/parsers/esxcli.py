@@ -326,7 +326,26 @@ def parse_nvme_smart_log(record: Record) -> Reading:
     )
 
 
-def parse_native_smart(rows: list[Record], kind: DiskKind, logical_block_size: int | None = None) -> Reading:
+HOST_WRITES_32MIB_BYTES = 32 * 1024 * 1024
+
+
+def _writes_in_32mib_units(model: str) -> bool:
+    """Whether Write/Read Sectors TOT Count (ATA attribute 241/242) counts
+    32 MiB units instead of sectors, as Intel/Solidigm SATA data-center SSDs
+    (model codes starting ``SSDSC``, e.g. the D3-S4610 ``SSDSC2BB016T7R``) do.
+
+    Confirmed against a live host: on those drives the raw value is identical
+    to Media Wearout Indicator's, which shares the same NAND-write counter --
+    a documented Intel/Solidigm firmware convention. esxcli's attribute table
+    is a fixed id->name mapping with no vendor awareness, and every other
+    vendor in it (Samsung, Crucial/Micron, Seagate, ...) counts real sectors.
+    """
+    return "SSDSC" in model.upper()
+
+
+def parse_native_smart(
+    rows: list[Record], kind: DiskKind, logical_block_size: int | None = None, model: str = ""
+) -> Reading:
     """``esxcli storage core device smart get -d <device>``.
 
     For ATA drives ``Value``/``Worst``/``Threshold`` are the *normalized*
@@ -363,9 +382,12 @@ def parse_native_smart(rows: list[Record], kind: DiskKind, logical_block_size: i
         life_used = None if wearout is None else max(0.0, 100.0 - wearout)
 
     health = as_str(by_name.get("healthstatus", {}).get("value")).upper()
-    block = logical_block_size or 512
     written = counter("writesectorstotcount")
     read = counter("readsectorstotcount")
+    if _writes_in_32mib_units(model):
+        unit = HOST_WRITES_32MIB_BYTES
+    else:
+        unit = logical_block_size or 512
 
     failing = []
     for row in rows:
@@ -379,8 +401,8 @@ def parse_native_smart(rows: list[Record], kind: DiskKind, logical_block_size: i
         power_on_hours=counter("poweronhours"),
         power_cycles=counter("powercyclecount"),
         life_used_pct=life_used,
-        written_bytes=written * block if written is not None else None,
-        read_bytes=read * block if read is not None else None,
+        written_bytes=written * unit if written is not None else None,
+        read_bytes=read * unit if read is not None else None,
         # NVMe rows report a synthesized 0 here; their spare/media data comes from the NVMe log.
         reallocated_sectors=counter("reallocatedsectorcount") if kind is not DiskKind.NVME else None,
         pending_sectors=counter("pendingsectorreallocationcount"),

@@ -10,6 +10,7 @@ from vmware_disk_health.parsers.smartctl import SmartctlError, parse_smartctl
 
 SA = "sa-esxi-01/"
 SC = "sc-esxi-01/"
+VCF = "esx11-vcf/"
 
 
 def text(name: str, shape: Shape):
@@ -113,8 +114,8 @@ def test_nvme_smart_log_critical_warning():
     assert reading.health_passed is False
 
 
-def native(name: str, kind: DiskKind, block: int | None = None):
-    return esxcli.parse_native_smart(text(name, Shape.TABLE), kind, block)
+def native(name: str, kind: DiskKind, block: int | None = None, model: str = ""):
+    return esxcli.parse_native_smart(text(name, Shape.TABLE), kind, block, model)
 
 
 def test_native_smart_uses_raw_values_for_ata():
@@ -153,6 +154,20 @@ def test_native_smart_respects_logical_block_size():
     assert exos.written_bytes == 175524784828 * 4096
 
 
+def test_native_smart_intel_solidigm_writes_are_32mib_units():
+    """Confirmed against a live host: the D3-S4610 fills Write/Read Sectors TOT
+    Count from the same 32 MiB-unit NAND write counter as Media Wearout
+    Indicator's raw value, not from real sectors like every other vendor."""
+    rows = esxcli.decode_json(fixture_text(VCF + "esxcli_json_storage_core_device_smart_get_solidigm.json"), Shape.TABLE)
+    solidigm = esxcli.parse_native_smart(rows, DiskKind.SSD, 512, "SSDSC2BB016T7R")
+    assert solidigm.written_bytes == 11959211 * 32 * 1024 * 1024
+    assert solidigm.read_bytes == 28038027 * 32 * 1024 * 1024
+    assert solidigm.power_on_hours == 79516  # a plain counter, unaffected by the unit
+    # Without the model hint (or on a differently-modelled drive), sectors stand.
+    generic = esxcli.parse_native_smart(rows, DiskKind.SSD, 512)
+    assert generic.written_bytes == 11959211 * 512
+
+
 def test_native_smart_attribute_below_threshold():
     rows = text(SA + "esxcli_storage_core_device_smart_get_exos.txt", Shape.TABLE)
     reallocated = next(r for r in rows if r["parameter"] == "Reallocated Sector Count")
@@ -168,6 +183,18 @@ def test_capacity_list_json_equals_text():
     assert from_json == from_text
     assert from_text["t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS"] == (512, "512e")
     assert from_text["t10.ATA_____Samsung_SSD_750_EVO_120GB_______________S3F2NWBHB56997P_____"] == (512, "512n")
+
+
+def test_device_list_naa_id_has_no_serial():
+    """Drives that report their own WWN get a naa.* id instead of a
+    t10.ATA_____<model><serial> one, so there is no serial to decode."""
+    rows = esxcli.decode_json(fixture_text(VCF + "esxcli_json_storage_core_device_list_solidigm.json"), Shape.BLOCKS)
+    (disk,) = esxcli.parse_device_list(rows)
+    assert disk.device_id == "naa.55cd2e414d7a89c7"
+    assert disk.model == "SSDSC2BB016T7R"
+    assert disk.serial == ""
+    assert disk.kind is DiskKind.SSD
+    assert disk.protocol == "sas"
 
 
 def test_device_list_json_equals_text():
