@@ -376,8 +376,19 @@ def parse_native_smart(rows: list[Record], kind: DiskKind, logical_block_size: i
 
     life_used = None
     if kind is not DiskKind.HDD and (row := by_name.get("mediawearoutindicator")):
-        wearout = as_number(row.get("value"))  # normalized: 100 new .. 0 worn out
-        life_used = None if wearout is None else max(0.0, 100.0 - wearout)
+        wearout_raw = as_int(row.get("raw"))
+        write_raw = as_int(by_name.get("writesectorstotcount", {}).get("raw"))
+        # Some firmwares (the same Intel/Solidigm drives _writes_in_32mib_units
+        # covers) fill this attribute's raw field from the write counter
+        # instead of a real wear count; esxcli's Value is then stuck at 100
+        # regardless of actual wear -- confirmed against a live host where
+        # Dell's own out-of-band monitoring showed real wear on the same
+        # drives. There is no way to recover the true percentage from esxcli
+        # alone then, so it is left unknown rather than reported as 0% used.
+        reused_for_writes = wearout_raw is not None and wearout_raw > 0 and wearout_raw == write_raw
+        if not reused_for_writes:
+            wearout = as_number(row.get("value"))  # normalized: 100 new .. 0 worn out
+            life_used = None if wearout is None else max(0.0, 100.0 - wearout)
 
     health = as_str(by_name.get("healthstatus", {}).get("value")).upper()
     written = counter("writesectorstotcount")

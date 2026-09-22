@@ -168,6 +168,21 @@ def test_native_smart_intel_solidigm_writes_are_32mib_units():
     assert generic.written_bytes == 11959211 * 512
 
 
+def test_native_smart_intel_solidigm_wearout_value_is_stuck():
+    """On the same drives, Media Wearout Indicator's raw is aliased to the
+    write counter and its Value is always 100 -- reporting that as 0% used
+    would be wrong, so it must come back unknown instead."""
+    rows = esxcli.decode_json(fixture_text(VCF + "esxcli_json_storage_core_device_smart_get_solidigm.json"), Shape.TABLE)
+    assert esxcli.parse_native_smart(rows, DiskKind.SSD, 512, "SSDSC2BB016T7R").life_used_pct is None
+
+    # A drive whose Media Wearout Indicator raw is its own (unaliased) counter
+    # keeps a real Value -- confirmed on a boot disk in the same fleet, where
+    # esxcli reported raw 0 / Value 96 and Dell's OOB monitoring agreed.
+    mwi = next(r for r in rows if r["parameter"] == "Media Wearout Indicator")
+    mwi["raw"], mwi["value"], mwi["worst"] = "0", "96", "96"
+    assert esxcli.parse_native_smart(rows, DiskKind.SSD, 512, "SSDSC2BB016T7R").life_used_pct == 4
+
+
 def test_native_smart_attribute_below_threshold():
     rows = text(SA + "esxcli_storage_core_device_smart_get_exos.txt", Shape.TABLE)
     reallocated = next(r for r in rows if r["parameter"] == "Reallocated Sector Count")
