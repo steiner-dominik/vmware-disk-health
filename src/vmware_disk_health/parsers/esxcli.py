@@ -52,7 +52,7 @@ def _record(mapping: dict[str, Any], *, keep_labels: bool = False) -> Record:
 # ---------------------------------------------------------------- front-ends
 
 
-def decode_json(text: str, shape: Shape) -> Record | list[Record]:
+def decode_json(text: str, shape: Shape, *, keep_labels: bool = False) -> Record | list[Record]:
     """Raises ValueError if the output is not the JSON we expect."""
     data = json.loads(text)
     if isinstance(data, dict):
@@ -65,31 +65,39 @@ def decode_json(text: str, shape: Shape) -> Record | list[Record]:
         return _record(data, keep_labels=True)
     if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
         raise ValueError("expected a JSON list of objects")
-    return [_record(item) for item in data]
+    return [_record(item, keep_labels=keep_labels) for item in data]
 
 
-def decode_text(text: str, shape: Shape) -> Record | list[Record]:
+def decode_text(text: str, shape: Shape, *, keep_labels: bool = False) -> Record | list[Record]:
     if shape is Shape.BLOCKS:
-        return text_blocks(text)
+        return text_blocks(text, keep_labels=keep_labels)
     if shape is Shape.TABLE:
         return text_table(text)
     return text_record(text)
 
 
-def text_blocks(text: str) -> list[Record]:
+def text_blocks(text: str, *, keep_labels: bool = False) -> list[Record]:
     """Unindented names followed by indented ``Key: Value`` lines.
 
     The name is kept as ``_name``; for the device list it is the device id.
     """
     blocks: list[Record] = []
+    labels: list[dict[str, str]] = []
     for line in text.splitlines():
         if not line.strip():
             continue
         if not line[0].isspace():
             blocks.append({"_name": line.strip().rstrip(":")})
+            labels.append({})
         elif blocks and ":" in line:
             key, _, value = line.strip().partition(":")
-            blocks[-1][norm_key(key)] = value.strip()
+            norm = norm_key(key)
+            blocks[-1][norm] = value.strip()
+            labels[-1][norm] = key.strip()
+    if keep_labels:
+        for block, block_labels in zip(blocks, labels, strict=True):
+            if block_labels:
+                block["_labels"] = block_labels
     return blocks
 
 

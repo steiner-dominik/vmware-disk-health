@@ -47,6 +47,7 @@ class HostCollector:
         self.settings = settings
         self.json = False
         self._semaphore = asyncio.Semaphore(PER_HOST_CONCURRENCY)
+        self._device_records: dict[str, esxcli.Record] = {}
 
     async def _exec(self, command: str) -> tuple[str, int] | None:
         async with self._semaphore:
@@ -65,13 +66,13 @@ class HostCollector:
         result = await self._exec(command)
         return result[0] if result and result[1] == 0 else None
 
-    async def esxcli(self, args: str, shape: Shape, *, required: bool = False) -> Any:
+    async def esxcli(self, args: str, shape: Shape, *, required: bool = False, keep_labels: bool = False) -> Any:
         """Run an esxcli namespace as JSON when the host supports it, else as text."""
         if self.json:
             output = await self.run(f"{ESXCLI_JSON} {args}")
             if output is not None:
                 try:
-                    return esxcli.decode_json(output, shape)
+                    return esxcli.decode_json(output, shape, keep_labels=keep_labels)
                 except ValueError as exc:
                     log.info("%s: unexpected JSON from `esxcli %s` (%s), using text output", self.host.name, args, exc)
         output = await self.run(f"esxcli {args}")
@@ -79,7 +80,7 @@ class HostCollector:
             if required:
                 raise CommandFailed(f"`esxcli {args}` failed")
             return {} if shape is Shape.RECORD else []
-        return esxcli.decode_text(output, shape)
+        return esxcli.decode_text(output, shape, keep_labels=keep_labels)
 
     async def detect(self, host_result: HostResult) -> None:
         output = await self.run(f"{ESXCLI_JSON} system version get")
@@ -104,7 +105,8 @@ class HostCollector:
         return None
 
     async def discover(self) -> list[DiskInfo]:
-        records = await self.esxcli("storage core device list", Shape.BLOCKS, required=True)
+        records = await self.esxcli("storage core device list", Shape.BLOCKS, required=True, keep_labels=True)
+        self._device_records = {esxcli.as_str(r.get("device")) or esxcli.as_str(r.get("_name")): r for r in records}
         disks = [d for d in esxcli.parse_device_list(records) if not self.settings.is_excluded(self.host, d)]
         capacities = esxcli.parse_capacity_list(await self.esxcli("storage core device capacity list", Shape.TABLE))
         for disk in disks:
@@ -165,6 +167,9 @@ class HostCollector:
     async def collect_disk(self, disk: DiskInfo, smartctl: str | None) -> DiskResult:
         result = DiskResult(host=self.host.name, info=disk)
         readings: list[Reading] = []  # highest priority first
+
+        if record := self._device_records.get(disk.device_id):
+            result.raw["esxcli_device"] = record
 
         if smartctl and disk.kind is not DiskKind.NVME:
             if reading := await self.smartctl_reading(disk, smartctl, result):

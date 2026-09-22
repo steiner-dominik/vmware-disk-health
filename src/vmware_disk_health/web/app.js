@@ -839,6 +839,12 @@ function detailsCard(detail) {
     ),
   );
 
+  const device = disk.raw.esxcli_device;
+  if (device) {
+    const labels = device._labels || {};
+    const entries = Object.entries(device).filter(([name]) => name !== "_labels");
+    card.append(rawTable(t("raw.device"), [t("raw.col.name"), t("raw.col.value")], entries.map(([name, value]) => ({ cells: [labels[name] || name, String(value)] })), [1]));
+  }
   const smartctl = disk.raw.smartctl?.attributes;
   if (smartctl?.length) {
     card.append(

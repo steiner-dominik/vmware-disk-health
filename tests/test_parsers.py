@@ -212,6 +212,20 @@ def test_device_list_naa_id_has_no_serial():
     assert disk.protocol == "sas"
 
 
+def test_device_list_keep_labels_json_equals_text():
+    """The raw device record shown in the details pane keeps original label
+    casing (Model, Is Boot Device, ...) instead of the normalized lookup keys."""
+    exos_id = "t10.ATA_____ST20000NM007D2D3DJ103________________________________ZVTBWXYS"
+    from_text = esxcli.decode_text(fixture_text(SA + "esxcli_storage_core_device_list.txt"), Shape.BLOCKS, keep_labels=True)
+    from_json = esxcli.decode_json(fixture_text(SA + "esxcli_json_storage_core_device_list.json"), Shape.BLOCKS, keep_labels=True)
+    exos_text = next(r for r in from_text if r.get("device") == exos_id or r.get("_name") == exos_id)
+    exos_json = next(r for r in from_json if r.get("device") == exos_id)
+    assert exos_text["_labels"]["model"] == "Model" and exos_json["_labels"]["model"] == "Model"
+    assert exos_text["model"] == exos_json["model"] == "ST20000NM007D-3D"
+    # Without the flag (the default, used everywhere else BLOCKS is parsed), no labels.
+    assert "_labels" not in esxcli.decode_text(fixture_text(SA + "esxcli_storage_core_device_list.txt"), Shape.BLOCKS)[0]
+
+
 def test_device_list_json_equals_text():
     from_json = esxcli.parse_device_list(
         esxcli.decode_json(fixture_text(SA + "esxcli_json_storage_core_device_list.json"), Shape.BLOCKS)

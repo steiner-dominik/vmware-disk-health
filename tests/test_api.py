@@ -47,6 +47,8 @@ def test_disk_detail_and_history(client):
     assert detail["insights"]["written_basis"] == "lifetime"
     raw = detail["disk"]["raw"]["esxcli_nvme"]
     assert raw["_labels"]["dataunitswritten"] == "DataUnitsWritten"
+    device = detail["disk"]["raw"]["esxcli_device"]
+    assert device["_labels"]["model"] == "Model" and device["model"].strip() == "EO000750KWTXC"
 
     history = client.get(f"/api/disks/{quote(EXOS, safe='')}/history?days=7").json()
     assert len(history["points"]) == 1 and history["points"][0]["temperature_c"] == 30

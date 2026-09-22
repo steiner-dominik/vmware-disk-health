@@ -508,7 +508,7 @@ wheels = [
 
 [[package]]
 name = "vmware-disk-health"
-version = "26.9.22.2"
+version = "26.9.22.3"
 source = { editable = "." }
 dependencies = [
     { name = "asyncssh" },

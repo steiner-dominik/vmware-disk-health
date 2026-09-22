@@ -92,6 +92,22 @@ def test_without_smartctl_everything_comes_from_esxcli():
     assert disks[SN850X].errors
 
 
+def test_device_list_raw_is_kept_for_the_details_pane():
+    """The bulk `storage core device list` call is already made once per host
+    to discover disks; its per-device record is kept (with original labels)
+    instead of a second per-disk esxcli round trip."""
+    _, disks, _ = collect(sa_esxi_01(json=False, smartctl=False))
+    raw = disks[EXOS].raw["esxcli_device"]
+    assert raw["model"] == "ST20000NM007D-3D"
+    assert raw["_labels"]["model"] == "Model"
+    assert raw["_labels"]["isbootdevice"] == "Is Boot Device"
+
+    _, disks_json, _ = collect(sa_esxi_01(json=True, smartctl=False))
+    raw_json = disks_json[EXOS].raw["esxcli_device"]
+    assert raw_json["model"] == "ST20000NM007D-3D"
+    assert raw_json["_labels"]["model"] == "Model"
+
+
 def test_json_formatter_is_used_when_available_with_text_fallback():
     result, disks, transport = collect(sa_esxi_01(json=True, smartctl=False))
     assert result.esxcli_json
