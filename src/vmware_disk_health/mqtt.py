@@ -75,6 +75,17 @@ def slug(value: str) -> str:
     return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]", "_", value.lower())).strip("_")
 
 
+def short_id(device_id: str) -> str:
+    """Last few characters of a device id: readable enough to tell disks apart.
+
+    Used when a disk has no serial number, which happens for drives that
+    report their own WWN (esxcli then names them ``naa.*``/``eui.*`` instead
+    of a ``t10.ATA_____<model><serial>`` id the serial can be read from).
+    """
+    tail = re.sub(r"^[a-z0-9]+\.", "", device_id.lower())
+    return (tail[-8:] or device_id).upper()
+
+
 def _config(entity: Entity, unique_prefix: str, state_topic: str, device: dict, base_topic: str) -> dict:
     # No object_id: with has_entity_name, Home Assistant builds the entity id
     # from the device name and the entity name, which is what we want.
@@ -117,13 +128,20 @@ def host_device(host: HostResult | str, version: str | None = None) -> dict:
 
 
 def disk_name(disk: DiskResult, display_name: str | None = None) -> str:
-    """Model and serial: several identical models in one host must stay apart."""
+    """Model and serial: several identical models in one host must stay apart.
+
+    Without a serial (WWN-reporting drives esxcli names ``naa.*``/``eui.*``,
+    typically without smartctl to read the real one), the model alone would
+    collide the same way, so a short id suffix stands in for it instead.
+    """
     if display_name:
         return display_name
     info = disk.info
     if info.model and info.serial:
         return f"{info.model} {info.serial}"
-    return info.model or info.serial or disk.key
+    if info.model:
+        return f"{info.model} {short_id(disk.key)}"
+    return info.serial or disk.key
 
 
 def disk_unique(disk: DiskResult) -> str:

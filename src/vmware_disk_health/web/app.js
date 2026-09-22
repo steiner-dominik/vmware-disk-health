@@ -189,6 +189,9 @@ function effectiveStatus(disk) {
 
 const diskHref = (key) => `#/disk/${encodeURIComponent(key)}`;
 const diskTitle = (disk) => disk.name || disk.model || disk.key;
+// Last few characters of a device id: distinguishes same-model disks that have no
+// serial number (drives reporting their own WWN, which esxcli names naa.*/eui.*).
+const shortId = (key) => (key.replace(/^[a-z0-9]+\./i, "").slice(-8) || key).toUpperCase();
 
 // ------------------------------------------------------------------ shell
 
@@ -497,7 +500,9 @@ function diskTable(disks) {
               "div",
               { class: "disk-sub" },
               disk.name && disk.model && h("span", { text: disk.model }),
-              disk.serial && h("span", { class: "mono", text: disk.serial }),
+              disk.serial
+                ? h("span", { class: "mono", text: disk.serial })
+                : h("span", { class: "mono muted", text: shortId(disk.key) }),
               h("span", { class: "badge", text: t(`kind.${disk.kind}`) }),
               h("span", { text: fmtCapacity(disk.size_bytes) }),
               disk.is_boot && h("span", { class: "badge", text: t("badge.boot") }),
@@ -546,7 +551,9 @@ async function renderDisk(key) {
       "div",
       { class: "detail-sub" },
       summary.name && h("span", { text: disk.info.model }),
-      disk.info.serial && h("span", { class: "mono", text: disk.info.serial }),
+      disk.info.serial
+        ? h("span", { class: "mono", text: disk.info.serial })
+        : h("span", { class: "mono muted", text: shortId(disk.info.device_id) }),
       h("span", { class: "badge", text: t(`kind.${disk.info.kind}`) }),
       h("span", { text: fmtCapacity(disk.info.size_bytes) }),
       disk.info.format_type && h("span", { class: "badge", text: disk.info.format_type }),

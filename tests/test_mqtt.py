@@ -50,6 +50,19 @@ def test_discovery_only_covers_values_the_drive_reports():
     assert life["has_entity_name"] is True and life["name"] == "Life remaining"
 
 
+def test_disk_name_falls_back_to_a_short_id_without_a_serial():
+    """WWN-reporting drives (naa.*/eui.* device ids) have no serial to read; the
+    model alone would collide the same way the serial fix in disk_name avoids."""
+    _, disks = collected()
+    samsung = disks[SAMSUNG].model_copy(deep=True)
+    samsung.info.serial = ""
+    assert mqtt.disk_name(samsung) == f"Samsung SSD 750 EVO 120GB {mqtt.short_id(samsung.key)}"
+
+    exos = disks[EXOS].model_copy(deep=True)
+    exos.info.model, exos.info.serial = samsung.info.model, ""
+    assert mqtt.disk_name(exos) != mqtt.disk_name(samsung)
+
+
 def test_status_entity_is_an_enum_with_attributes():
     _, disks = collected()
     messages = dict(mqtt.disk_messages(disks[OPTANE], MqttConfig()))
