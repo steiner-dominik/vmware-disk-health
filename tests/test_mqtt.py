@@ -117,9 +117,7 @@ def test_disk_override_renames_the_device():
     publisher.client = FakeClient()
     host, _ = collected()
     asyncio.run(publisher.publish(host))
-    config = next(
-        json.loads(p) for t, p, _ in publisher.client.published if t.endswith("vdh_s3f2nwbhb56997p/status/config")
-    )
+    config = next(json.loads(p) for t, p, _ in publisher.client.published if t.endswith("vdh_s3f2nwbhb56997p/status/config"))
     assert config["device"]["name"] == "Boot SSD"
 
 

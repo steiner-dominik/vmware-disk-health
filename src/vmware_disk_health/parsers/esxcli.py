@@ -343,9 +343,7 @@ def _writes_in_32mib_units(model: str) -> bool:
     return "SSDSC" in model.upper()
 
 
-def parse_native_smart(
-    rows: list[Record], kind: DiskKind, logical_block_size: int | None = None, model: str = ""
-) -> Reading:
+def parse_native_smart(rows: list[Record], kind: DiskKind, logical_block_size: int | None = None, model: str = "") -> Reading:
     """``esxcli storage core device smart get -d <device>``.
 
     For ATA drives ``Value``/``Worst``/``Threshold`` are the *normalized*
