@@ -28,6 +28,10 @@ def format_change(change: StatusChange) -> tuple[str, str]:
     disk = change.disk
     name = disk.info.model or disk.info.device_id
     where = f"{disk.host} · {disk.info.serial}" if disk.info.serial else disk.host
+    if change.kind == "missing":
+        return f"Missing: {name}", f"{where}\nThe host no longer reports this disk ({disk.info.device_id})."
+    if change.kind == "returned":
+        return f"Back: {name}", f"{where}\nThe host reports this disk again. Status: {change.new.label}."
     if change.new is Severity.OK:
         return f"Recovered: {name}", f"{where}\nBack to OK."
     details = "\n".join(f"- {f.message}" for f in disk.findings) or change.new.label
@@ -35,6 +39,11 @@ def format_change(change: StatusChange) -> tuple[str, str]:
 
 
 def should_notify(change: StatusChange, config: AlertsConfig) -> bool:
+    # A vanished disk is as serious as a warning: it may have died.
+    if change.kind == "missing":
+        return config.severity_floor <= Severity.WARNING
+    if change.kind == "returned":
+        return config.notify_recovery and config.severity_floor <= Severity.WARNING
     if change.new >= config.severity_floor:
         return True
     # A recovery is only interesting if the disk was actually alerted on before.
@@ -96,9 +105,10 @@ def _send_ntfy(config: AlertsConfig, title: str, body: str, severity: Severity) 
 def _send_gotify(config: AlertsConfig, title: str, body: str, severity: Severity) -> None:
     if not config.gotify_url or not config.gotify_token:
         return
-    url = f"{config.gotify_url.rstrip('/')}/message?token={config.gotify_token}"
+    # The token goes in a header, not the URL, where proxies and logs would keep it.
+    url = f"{config.gotify_url.rstrip('/')}/message"
     payload = {"title": title, "message": body, "priority": PRIORITY[severity][1]}
-    _post(url, json.dumps(payload).encode(), {"Content-Type": "application/json"})
+    _post(url, json.dumps(payload).encode(), {"Content-Type": "application/json", "X-Gotify-Key": config.gotify_token})
 
 
 def _send_mail(config: AlertsConfig, title: str, body: str, _severity: Severity) -> None:
@@ -110,8 +120,11 @@ def _send_mail(config: AlertsConfig, title: str, body: str, _severity: Severity)
     message["To"] = config.smtp_to
     message.set_content(body)
     try:
-        with smtplib.SMTP(config.smtp_host, config.smtp_port, timeout=TIMEOUT) as smtp:
-            if config.smtp_tls:
+        # Port 465 is implicit TLS (SMTPS); anything else upgrades with STARTTLS.
+        implicit_tls = config.smtp_tls and config.smtp_port == 465
+        smtp_class = smtplib.SMTP_SSL if implicit_tls else smtplib.SMTP
+        with smtp_class(config.smtp_host, config.smtp_port, timeout=TIMEOUT) as smtp:
+            if config.smtp_tls and not implicit_tls:
                 smtp.starttls()
             if config.smtp_username:
                 smtp.login(config.smtp_username, config.smtp_password)

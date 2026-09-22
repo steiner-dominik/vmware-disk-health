@@ -13,13 +13,15 @@ function svgEl(tag, attrs = {}, parent = null) {
   return node;
 }
 
-function niceScale(min, max, count = 4) {
+// minStep 1 keeps integer counters from getting fractional ticks that all
+// round to the same label ("1, 1, 1").
+function niceScale(min, max, count = 4, minStep = 0) {
   if (!Number.isFinite(min) || !Number.isFinite(max)) [min, max] = [0, 1];
   if (min === max) [min, max] = [min - 1, max + 1];
   const rough = (max - min) / count;
   const magnitude = 10 ** Math.floor(Math.log10(rough));
   const norm = rough / magnitude;
-  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * magnitude;
+  const step = Math.max(minStep, (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * magnitude);
   const lo = Math.floor(min / step) * step;
   const hi = Math.ceil(max / step) * step;
   const ticks = [];
@@ -79,6 +81,7 @@ function roundedTopBar(x, y, width, baseline, radius = 4) {
  *   bucket: ms, width of a column (columns only)
  *   format(v), formatTime(t, unit), label (aria)
  *   yMin, yMax: force the axis to include these values
+ *   integer: values are whole counts; no fractional axis ticks
  *   refs: [{ v, label, status: "warning" | "critical" }]
  */
 export function timeChart(container, options) {
@@ -98,7 +101,7 @@ export function timeChart(container, options) {
     const values = points.map((p) => p.v).concat(refs.map((r) => r.v));
     if (options.yMin !== undefined) values.push(options.yMin);
     if (options.yMax !== undefined) values.push(options.yMax);
-    const y = niceScale(Math.min(...values), Math.max(...values));
+    const y = niceScale(Math.min(...values), Math.max(...values), 4, options.integer ? 1 : 0);
 
     const tickLabels = y.ticks.map((v) => format(v, true));
     const left = Math.max(...tickLabels.map((s) => s.length)) * 7 + 14;

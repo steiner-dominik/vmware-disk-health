@@ -65,6 +65,13 @@ def evaluate(
             add("life_low", Severity.CRITICAL, message, remaining, thresholds.life_remaining_crit_pct)
         elif remaining <= thresholds.life_remaining_warn_pct:
             add("life_low", Severity.WARNING, message, remaining, thresholds.life_remaining_warn_pct)
+    estimated = r.life_remaining_estimated_pct
+    if result.info.kind is not DiskKind.HDD and remaining is None and estimated is not None:
+        # Bytes written against a TBW rating is approximate, so it can warn but
+        # never make a disk critical on its own.
+        if estimated <= thresholds.life_remaining_warn_pct:
+            message = f"about {estimated:.0f}% endurance remaining (estimated from data written vs. rated TBW)"
+            add("life_low_estimated", Severity.WARNING, message, estimated, thresholds.life_remaining_warn_pct)
 
     base = baseline or Reading()
     if r.pending_sectors:
@@ -81,10 +88,17 @@ def evaluate(
         add("offline_uncorrectable", Severity.CRITICAL, f"{n} offline uncorrectable sectors", n)
     if r.reallocated_sectors:
         n = r.reallocated_sectors
-        if _increased(n, base.reallocated_sectors):
-            add("reallocated_sectors_rising", Severity.CRITICAL, f"reallocated sectors increased to {n}", n)
-        else:
-            add("reallocated_sectors", Severity.WARNING, f"{n} reallocated sectors", n)
+        rising = _increased(n, base.reallocated_sectors)
+        if result.info.kind is DiskKind.HDD:
+            if rising:
+                add("reallocated_sectors_rising", Severity.CRITICAL, f"reallocated sectors increased to {n}", n)
+            else:
+                add("reallocated_sectors", Severity.WARNING, f"{n} reallocated sectors", n)
+        elif rising:
+            add("reallocated_sectors_rising", Severity.WARNING, f"reallocated sectors increased to {n}", n)
+        elif n >= thresholds.ssd_reallocated_warn_count:
+            limit = thresholds.ssd_reallocated_warn_count
+            add("reallocated_sectors", Severity.WARNING, f"{n} reallocated sectors", n, limit)
     if r.reported_uncorrectable:
         n = r.reported_uncorrectable
         add("reported_uncorrectable", Severity.WARNING, f"{n} reported uncorrectable errors", n)

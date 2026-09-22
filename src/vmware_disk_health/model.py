@@ -51,6 +51,10 @@ class DiskInfo(BaseModel):
     logical_block_size: int | None = None
     format_type: str = ""  # 512n, 512e, 4Kn as reported by ESXi
     nvme_adapter: str | None = None
+    # vSAN OSA role from `esxcli vsan storage list`: "cache" or "capacity";
+    # None when the disk is not claimed by vSAN (or the host has no vSAN).
+    vsan_tier: str | None = None
+    vsan_disk_group: str | None = None  # device id of the group's cache disk
 
 
 class Reading(BaseModel):
@@ -81,10 +85,19 @@ class Reading(BaseModel):
     critical_warnings: list[str] = Field(default_factory=list)
     # ATA attributes whose normalized value is at or below the vendor threshold.
     failing_attributes: list[str] = Field(default_factory=list)
+    # Data written against the vendor's rated endurance (TBW). Only filled when
+    # the drive reports no wear of its own, and never authoritative: see endurance.py.
+    life_used_estimated_pct: float | None = None
 
     @property
     def life_remaining_pct(self) -> float | None:
         return None if self.life_used_pct is None else max(0.0, 100.0 - self.life_used_pct)
+
+    @property
+    def life_remaining_estimated_pct(self) -> float | None:
+        if self.life_used_estimated_pct is None:
+            return None
+        return max(0.0, 100.0 - self.life_used_estimated_pct)
 
     def merge(self, other: Reading) -> Reading:
         """Fill fields that are still empty with values from a lower-priority source."""
@@ -112,7 +125,23 @@ NUMERIC_FIELDS: tuple[str, ...] = (
     "media_errors",
     "error_log_entries",
     "available_spare_pct",
+    "life_used_estimated_pct",
 )
+
+
+class EnduranceRating(BaseModel):
+    """The vendor-published write endurance a disk was matched to."""
+
+    family: str
+    tbw_bytes: int
+    # True when the model name was truncated (esxcli keeps 16 characters) and
+    # several ratings could apply; the lowest one is used then.
+    ambiguous: bool = False
+
+
+def disk_key(host: str, device_id: str) -> str:
+    """See DiskResult.key."""
+    return f"{host}/{device_id}" if device_id.startswith("mpx.") else device_id
 
 
 class DiskResult(BaseModel):
@@ -126,6 +155,7 @@ class DiskResult(BaseModel):
     raw: dict[str, Any] = Field(default_factory=dict)
     findings: list[Finding] = Field(default_factory=list)
     status: Severity = Severity.UNKNOWN
+    endurance: EnduranceRating | None = None
 
     @property
     def key(self) -> str:
@@ -134,9 +164,7 @@ class DiskResult(BaseModel):
         t10/naa/eui ids are globally unique and follow a disk to another host;
         mpx ids are per-host bus paths, so those are qualified with the host.
         """
-        if self.info.device_id.startswith("mpx."):
-            return f"{self.host}/{self.info.device_id}"
-        return self.info.device_id
+        return disk_key(self.host, self.info.device_id)
 
 
 class HostResult(BaseModel):
@@ -150,3 +178,6 @@ class HostResult(BaseModel):
     collected_at: float = 0.0
     duration_s: float = 0.0
     disks: list[DiskResult] = Field(default_factory=list)
+    # Keys of disks the host reported but the configuration excludes, so they
+    # are not mistaken for disks that disappeared.
+    excluded: list[str] = Field(default_factory=list)

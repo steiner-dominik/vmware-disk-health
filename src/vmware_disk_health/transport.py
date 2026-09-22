@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -49,8 +50,10 @@ class KeyStore:
         if not self.private_key_path.exists():
             self.dir.mkdir(parents=True, exist_ok=True)
             key = asyncssh.generate_private_key("ssh-ed25519", comment="vmware-disk-health")
-            key.write_private_key(self.private_key_path)
-            self.private_key_path.chmod(0o600)
+            # Created 0600 from the start, never briefly readable by others.
+            fd = os.open(self.private_key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "wb") as file:
+                file.write(key.export_private_key())
             log.info("generated SSH key %s", self.private_key_path)
         return asyncssh.read_private_key(self.private_key_path)
 
@@ -65,17 +68,24 @@ class KeyStore:
     def pinned(self, host_id: str) -> str | None:
         return self._known().get(host_id)
 
+    def _write_known(self, known: dict[str, str]) -> None:
+        # Write and rename: a crash mid-write must not leave a truncated file
+        # that makes every later connection fail.
+        self.dir.mkdir(parents=True, exist_ok=True)
+        temporary = self.known_hosts_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(known, indent=2))
+        temporary.replace(self.known_hosts_path)
+
     def pin(self, host_id: str, key: str) -> None:
         known = self._known()
         known[host_id] = key
-        self.dir.mkdir(parents=True, exist_ok=True)
-        self.known_hosts_path.write_text(json.dumps(known, indent=2))
+        self._write_known(known)
 
     def forget(self, host_id: str) -> bool:
         known = self._known()
         if known.pop(host_id, None) is None:
             return False
-        self.known_hosts_path.write_text(json.dumps(known, indent=2))
+        self._write_known(known)
         return True
 
 

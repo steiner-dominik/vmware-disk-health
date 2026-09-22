@@ -61,6 +61,10 @@ class Thresholds(BaseModel):
     temp_nvme_crit_c: float = 80
     # Lower the limits to what the drive itself reports as its maximum.
     use_drive_temp_limit: bool = True
+    # SSDs retire worn blocks as part of normal operation, so a small count
+    # that stays put is not a problem; one that grows still is. Hard disks
+    # always warn on any reallocated sector.
+    ssd_reallocated_warn_count: int = Field(default=10, ge=1)
 
     def temperature_limits(self, kind: DiskKind) -> tuple[float, float]:
         return (

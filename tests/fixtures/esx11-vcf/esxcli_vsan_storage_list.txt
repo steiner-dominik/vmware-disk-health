@@ -1,0 +1,62 @@
+naa.55cd2e414dcf3635
+   Device: naa.55cd2e414dcf3635
+   Display Name: naa.55cd2e414dcf3635
+   Is SSD: true
+   VSAN UUID: 52a1c2d3-0000-0000-0000-000000000001
+   VSAN Disk Group UUID: 52f0e1d2-0000-0000-0000-00000000aaaa
+   VSAN Disk Group Name: naa.55cd2e414dcf3635
+   Used by this host: true
+   In CMMDS: true
+   On-disk format version: 15
+   Deduplication: false
+   Compression: false
+   Checksum: 0
+   Checksum OK: true
+   Is Capacity Tier: false
+   Encryption Metadata Checksum OK: true
+   Encryption: false
+   DiskKeyLoaded: false
+   Is Mounted: true
+   Creation Time: Tue Mar 12 10:11:12 2024
+
+naa.55cd2e414d7a89c7
+   Device: naa.55cd2e414d7a89c7
+   Display Name: naa.55cd2e414d7a89c7
+   Is SSD: true
+   VSAN UUID: 52a1c2d3-0000-0000-0000-000000000002
+   VSAN Disk Group UUID: 52f0e1d2-0000-0000-0000-00000000aaaa
+   VSAN Disk Group Name: naa.55cd2e414dcf3635
+   Used by this host: true
+   In CMMDS: true
+   On-disk format version: 15
+   Deduplication: false
+   Compression: false
+   Checksum: 0
+   Checksum OK: true
+   Is Capacity Tier: true
+   Encryption Metadata Checksum OK: true
+   Encryption: false
+   DiskKeyLoaded: false
+   Is Mounted: true
+   Creation Time: Tue Mar 12 10:11:12 2024
+
+naa.55cd2e414e01a95e
+   Device: naa.55cd2e414e01a95e
+   Display Name: naa.55cd2e414e01a95e
+   Is SSD: true
+   VSAN UUID: 52a1c2d3-0000-0000-0000-000000000003
+   VSAN Disk Group UUID: 52f0e1d2-0000-0000-0000-00000000aaaa
+   VSAN Disk Group Name: naa.55cd2e414dcf3635
+   Used by this host: true
+   In CMMDS: true
+   On-disk format version: 15
+   Deduplication: false
+   Compression: false
+   Checksum: 0
+   Checksum OK: true
+   Is Capacity Tier: true
+   Encryption Metadata Checksum OK: true
+   Encryption: false
+   DiskKeyLoaded: false
+   Is Mounted: true
+   Creation Time: Tue Mar 12 10:11:12 2024

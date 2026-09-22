@@ -44,6 +44,9 @@ def _summary(disk: DiskResult, last_seen: float, host_success: float | None, nam
         "is_boot": disk.info.is_boot,
         "temperature_c": r.temperature_c,
         "life_remaining_pct": r.life_remaining_pct,
+        "life_remaining_estimated_pct": r.life_remaining_estimated_pct,
+        "rated_tbw_bytes": disk.endurance.tbw_bytes if disk.endurance else None,
+        "vsan_tier": disk.info.vsan_tier,
         "written_bytes": r.written_bytes,
         "power_on_hours": r.power_on_hours,
         "sources": disk.sources,
@@ -75,6 +78,13 @@ def create_app(
     def display_name(disk: DiskResult) -> str | None:
         override = settings.override_for(disk.info)
         return override.name if override else None
+
+    hosts_by_name = {h.name: h for h in settings.hosts}
+
+    def listed(disk: DiskResult) -> bool:
+        """Disks of configured hosts, minus ones excluded since they were stored."""
+        host = hosts_by_name.get(disk.host)
+        return host is not None and not settings.is_excluded(host, disk.info)
 
     def host_config(name: str):
         host = next((h for h in settings.hosts if h.name == name), None)
@@ -110,11 +120,10 @@ def create_app(
                     "duration_s": row.get("duration_s"),
                 }
             )
-        configured = {h.name for h in settings.hosts}
         summaries = [
             _summary(d, last_seen.get(d.key, 0), stored_hosts.get(d.host, {}).get("last_success"), display_name(d))
             for d in disks
-            if d.host in configured
+            if listed(d)
         ]
         counts = {s.label: 0 for s in Severity}
         for disk in summaries:
@@ -153,7 +162,7 @@ def create_app(
         history = storage.history(key, now - 365 * DAY)
         warn, crit = temperature_limits(disk, settings.thresholds_for(disk.info))
         host = next((h for h in storage.hosts() if h["name"] == disk.host), {})
-        last_seen = storage.last_seen().get(key, 0)
+        last_seen = storage.last_seen(key).get(key, 0)
         return {
             "key": key,
             "disk": disk.model_dump(mode="json"),
@@ -214,9 +223,12 @@ def create_app(
 
     @app.get("/metrics", response_class=PlainTextResponse)
     def prometheus():
-        configured = {h.name for h in settings.hosts}
-        hosts = [h for h in storage.hosts() if h["name"] in configured]
-        return metrics.render(hosts, [d for d in storage.disks() if d.host in configured])
+        stored_hosts = [h for h in storage.hosts() if h["name"] in hosts_by_name]
+        success = {h["name"]: h.get("last_success") for h in stored_hosts}
+        last_seen = storage.last_seen()
+        disks = [d for d in storage.disks() if listed(d)]
+        missing = {d.key for d in disks if success.get(d.host) and last_seen.get(d.key, 0) < success[d.host]}
+        return metrics.render(stored_hosts, disks, missing)
 
     @app.get("/", include_in_schema=False)
     def index():

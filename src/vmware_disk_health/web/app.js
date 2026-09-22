@@ -452,16 +452,25 @@ function hostSection(host, disks) {
   return h("section", { class: "section" }, parts);
 }
 
+const isNum = (v) => v !== null && v !== undefined;
+
 function lifeMeter(disk) {
-  if (disk.life_remaining_pct === null || disk.life_remaining_pct === undefined) return h("span", { class: "muted", text: DASH });
-  const finding = disk.findings.find((f) => f.code === "life_low");
+  const estimated = !isNum(disk.life_remaining_pct) && isNum(disk.life_remaining_estimated_pct);
+  const remaining = estimated ? disk.life_remaining_estimated_pct : disk.life_remaining_pct;
+  if (!isNum(remaining)) return h("span", { class: "muted", text: DASH });
+  const finding = disk.findings.find((f) => f.code === (estimated ? "life_low_estimated" : "life_low"));
   const severity = finding ? (finding.severity === 3 ? " is-critical" : " is-warning") : "";
   return h(
     "div",
-    { class: "meter" },
-    h("span", { text: fmtPct(Math.round(disk.life_remaining_pct)) }),
-    h("div", { class: "meter-track", "aria-hidden": "true" }, h("div", { class: `meter-fill${severity}`, style: `width:${Math.max(2, disk.life_remaining_pct)}%` })),
+    { class: `meter${estimated ? " is-estimated" : ""}`, title: estimated ? t("life.estimated.title") : null },
+    h("span", {}, estimated && h("small", { class: "est", text: `${t("life.estimated.short")} ` }), fmtPct(Math.round(remaining))),
+    h("div", { class: "meter-track", "aria-hidden": "true" }, h("div", { class: `meter-fill${severity}`, style: `width:${Math.max(2, remaining)}%` })),
   );
+}
+
+function vsanBadge(tier, group) {
+  if (!tier) return null;
+  return h("span", { class: `badge badge-vsan is-${tier}`, title: group ? t("badge.vsan.hint", { group }) : null, text: t(`badge.vsan.${tier}`) });
 }
 
 function diskTable(disks) {
@@ -505,6 +514,7 @@ function diskTable(disks) {
                 : h("span", { class: "mono muted", text: shortId(disk.key) }),
               h("span", { class: "badge", text: t(`kind.${disk.kind}`) }),
               h("span", { text: fmtCapacity(disk.size_bytes) }),
+              vsanBadge(disk.vsan_tier),
               disk.is_boot && h("span", { class: "badge", text: t("badge.boot") }),
             ),
           ),
@@ -557,6 +567,7 @@ async function renderDisk(key) {
       h("span", { class: "badge", text: t(`kind.${disk.info.kind}`) }),
       h("span", { text: fmtCapacity(disk.info.size_bytes) }),
       disk.info.format_type && h("span", { class: "badge", text: disk.info.format_type }),
+      vsanBadge(disk.info.vsan_tier, disk.info.vsan_disk_group),
       disk.info.is_boot && h("span", { class: "badge", text: t("badge.boot") }),
     ),
   );
@@ -620,6 +631,26 @@ function tiles(detail, r, info) {
 
   if (kind === "hdd") {
     out.push(tile(t("tile.life"), DASH, h("div", { class: "tile-sub", text: t("tile.life.hdd") })));
+  } else if (r.life_used_pct === null && isNum(r.life_used_estimated_pct) && detail.disk.endurance) {
+    const remaining = Math.max(0, 100 - r.life_used_estimated_pct);
+    const endurance = detail.disk.endurance;
+    const finding = detail.disk.findings.find((f) => f.code === "life_low_estimated");
+    let end = null;
+    if (info.life_end_ts) end = `${t("tile.life.end", { date: new Intl.DateTimeFormat(store.lang, { month: "short", year: "numeric" }).format(info.life_end_ts * 1000) })} (${t(`basis.${info.life_basis}`)})`;
+    else if (info.life_end_beyond_cap) end = t("tile.life.beyond");
+    out.push(
+      h(
+        "div",
+        { class: "card tile is-estimated", title: t("tile.life.estimatedNote") },
+        h("div", { class: "tile-label", text: t("tile.life.estimated") }),
+        h("div", { class: "tile-value" }, h("small", { class: "est", text: "≈ " }), fmtPct(Math.round(remaining))),
+        h("div", { class: "meter is-estimated" }, h("div", { class: "meter-track" }, h("div", { class: `meter-fill${finding ? " is-warning" : ""}`, style: `width:${Math.max(2, remaining)}%` }))),
+        h("div", { class: "tile-sub", text: t("tile.life.estimatedFrom", { written: fmtBytes(r.written_bytes), tbw: fmtBytes(endurance.tbw_bytes), family: endurance.family }) }),
+        end && h("div", { class: "tile-sub", text: end }),
+        h("div", { class: "tile-sub muted", text: t("tile.life.estimatedNote") }),
+        endurance.ambiguous && h("div", { class: "tile-sub muted", text: t("tile.life.ambiguous") }),
+      ),
+    );
   } else if (r.life_used_pct === null) {
     out.push(tile(t("tile.life"), DASH, h("div", { class: "tile-sub", text: t("tile.life.none") })));
   } else {
@@ -730,11 +761,15 @@ async function loadCharts(detail, container) {
   if (detail.disk.info.kind !== "hdd") {
     const life = series("life_used_pct");
     if (life.length) cards.push(chartCard(t("chart.life"), "%", life, { kind: "step", format: fmtPct, yMin: 0 }));
+    else if (detail.disk.reading.life_used_estimated_pct !== null) {
+      const estimated = series("life_used_estimated_pct");
+      if (estimated.length) cards.push(chartCard(t("chart.life.estimated"), "%", estimated, { kind: "line", format: fmtPct, yMin: 0 }));
+    }
   }
 
   const active = ERROR_COUNTERS.filter((name) => points.some((p) => p[name]));
   for (const name of active) {
-    cards.push(chartCard(t(`counter.${name}`), t("chart.errors"), series(name), { kind: "step", format: fmtInt, yMin: 0 }));
+    cards.push(chartCard(t(`counter.${name}`), t("chart.errors"), series(name), { kind: "step", format: fmtInt, yMin: 0, integer: true }));
   }
   if (!active.length && ERROR_COUNTERS.some((name) => points.some((p) => p[name] !== null && p[name] !== undefined))) {
     cards.push(h("div", { class: "card chart-card" }, h("div", { class: "chart-title" }, h("h3", { text: t("chart.errors") })), h("div", { class: "chart-empty", text: t("chart.errors.allZero") })));
@@ -824,6 +859,9 @@ function detailsCard(detail) {
     [t("details.format"), [info.format_type, info.logical_block_size && `${info.logical_block_size} B`].filter(Boolean).join(" · ") || DASH],
     [t("details.host"), disk.host],
     info.nvme_adapter && [t("details.adapter"), info.nvme_adapter, true],
+    info.vsan_tier && [t("details.vsan"), t(`tier.${info.vsan_tier}`)],
+    info.vsan_disk_group && [t("details.vsanGroup"), info.vsan_disk_group, true],
+    disk.endurance && [t("details.endurance"), t("details.endurance.value", { tbw: fmtBytes(disk.endurance.tbw_bytes), family: disk.endurance.family })],
     [t("details.deviceId"), info.device_id, true],
     [t("details.sources"), disk.sources.map((s) => t(`source.${s}`)).join(", ") || DASH],
     [t("details.lastSeen"), summary.last_seen ? fmtDateTime(summary.last_seen * 1000) : DASH],
@@ -1062,6 +1100,7 @@ async function renderSetup() {
     [t("setup.settings.lifeCrit"), fmtPct(th.life_remaining_crit_pct)],
     ...["hdd", "ssd", "nvme"].map((kind) => [t("setup.settings.temp", { kind: t(`kind.${kind}`) }), `${fmtTemp(th[`temp_${kind}_warn_c`])} / ${fmtTemp(th[`temp_${kind}_crit_c`])}`]),
     [t("setup.settings.driveLimit"), t(th.use_drive_temp_limit ? "setup.settings.yes" : "setup.settings.no")],
+    [t("setup.settings.ssdRealloc"), fmtInt(th.ssd_reallocated_warn_count)],
   ];
   const metricsLink = h("a", { href: "metrics", text: "/metrics" });
   const settings = h(

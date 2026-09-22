@@ -495,6 +495,26 @@ th.num {
 .meter-fill.is-critical {
   background: var(--critical);
 }
+/* Estimated wear (data written vs. rated TBW): hatched, so it never reads as
+   a value the drive reported itself. */
+.meter.is-estimated .meter-fill:not(.is-warning):not(.is-critical) {
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 3px, transparent 3px 5px);
+}
+.meter.is-estimated .meter-fill.is-warning {
+  background: repeating-linear-gradient(-45deg, var(--warning) 0 3px, transparent 3px 5px);
+}
+.est {
+  color: var(--muted);
+  font-size: 0.72em;
+  font-weight: 500;
+}
+.tile.is-estimated .tile-value {
+  color: var(--ink-2);
+}
+.badge-vsan.is-cache {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
 
 @media (max-width: 760px) {
   .disks thead {

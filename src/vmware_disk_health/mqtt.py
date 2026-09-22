@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import socket
 import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ import paho.mqtt.client as mqtt
 from . import __version__
 from .config import MqttConfig, Settings
 from .model import DiskKind, DiskResult, HostResult, Severity
+from .storage import StatusChange
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +49,14 @@ DISK_ENTITIES = (
     Entity("temperature_c", "Temperature", device_class="temperature", unit="°C", state_class="measurement"),
     Entity("life_remaining_pct", "Life remaining", unit="%", state_class="measurement", icon="mdi:battery-heart-variant"),
     Entity("life_used_pct", "Endurance used", unit="%", state_class="measurement", icon="mdi:chart-donut"),
+    # Data written vs. rated TBW, only for drives that report no wear themselves.
+    Entity(
+        "life_remaining_estimated_pct",
+        "Estimated life remaining",
+        unit="%",
+        state_class="measurement",
+        icon="mdi:battery-heart-outline",
+    ),
     Entity("written_bytes", "Data written", device_class="data_size", unit="B", state_class="total_increasing"),
     Entity("read_bytes", "Data read", device_class="data_size", unit="B", state_class="total_increasing"),
     Entity("power_on_hours", "Power-on time", device_class="duration", unit="h", state_class="total_increasing"),
@@ -172,15 +182,21 @@ def disk_state(disk: DiskResult, missing: bool = False) -> dict:
     status = "unknown" if missing else disk.status.label
     state = {
         "status": status,
-        "problem": "ON" if status in {"warning", "critical"} else "OFF",
+        # A disk that vanished from its host is a problem even without findings.
+        "problem": "ON" if missing or status in {"warning", "critical"} else "OFF",
+        "missing": missing,
         "life_remaining_pct": r.life_remaining_pct,
+        "life_remaining_estimated_pct": r.life_remaining_estimated_pct,
+        "rated_endurance_tbw": round(disk.endurance.tbw_bytes / 1e12) if disk.endurance else None,
         "host": disk.host,
         "device_id": disk.info.device_id,
         "model": disk.info.model,
         "serial": disk.info.serial,
         "kind": disk.info.kind.value,
+        "vsan_tier": disk.info.vsan_tier,
+        "vsan_disk_group": disk.info.vsan_disk_group,
         "sources": disk.sources,
-        "findings": [f.message for f in disk.findings],
+        "findings": ["disk no longer reported by the host"] if missing else [f.message for f in disk.findings],
         "updated": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     for entity in DISK_ENTITIES:
@@ -217,12 +233,15 @@ def legacy_disk_topics(disk: DiskResult, config: MqttConfig) -> list[str]:
     return [f"{config.discovery_prefix}/{e.component}/{unique}/{e.key}/config" for e in DISK_ENTITIES]
 
 
-def host_state(host: HostResult, disks: list[DiskResult]) -> dict:
+def host_state(host: HostResult, disks: list[DiskResult], last_success: float | None = None) -> dict:
+    """``last_success`` is kept across failed polls; disk counts are unknown then, not zero."""
+    if host.ok:
+        last_success = host.collected_at
     return {
         "reachable": "ON" if host.ok else "OFF",
-        "last_success": datetime.fromtimestamp(host.collected_at, UTC).isoformat(timespec="seconds") if host.ok else None,
-        "disks": len(disks),
-        "problem_disks": sum(1 for d in disks if d.status >= Severity.WARNING),
+        "last_success": datetime.fromtimestamp(last_success, UTC).isoformat(timespec="seconds") if last_success else None,
+        "disks": len(disks) if host.ok else None,
+        "problem_disks": sum(1 for d in disks if d.status >= Severity.WARNING) if host.ok else None,
         "esxi_version": host.esxi_version,
         "smartctl": host.smartctl_path,
         "duration_s": host.duration_s,
@@ -277,10 +296,14 @@ class MqttPublisher:
         self._announced: set[str] = set()
         self._retired: set[str] = set()
         self._uniques: dict[str, str] = {}
+        self._last_success: dict[str, float] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
 
     def _build(self) -> mqtt.Client:
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"vmware-disk-health-{os.getpid()}")
+        # In a container the PID is always 1: two instances (say, a homelab and
+        # a lab deployment) on one broker would keep disconnecting each other.
+        client_id = f"vmware-disk-health-{slug(self.config.base_topic)}-{slug(socket.gethostname())}-{os.getpid()}"
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id[:128])
         if self.config.username:
             client.username_pw_set(self.config.username, self.config.password)
         if self.config.tls:
@@ -329,14 +352,20 @@ class MqttPublisher:
         body = payload if isinstance(payload, str) else json.dumps(payload, default=str)
         self.client.publish(topic, body, qos=1, retain=retain)
 
-    async def publish(self, host: HostResult, _changes=None) -> None:
+    async def publish(self, host: HostResult, changes: list[StatusChange] | None = None) -> None:
         """Listener for the monitor: announce new devices, then publish states."""
         base = self.config.base_topic
         for topic, payload in host_messages(host, self.config):
             if topic not in self._announced:
                 self._publish(topic, payload)
                 self._announced.add(topic)
-        self._publish(f"{base}/host/{slug(host.name)}/state", host_state(host, host.disks))
+        if host.ok:
+            self._last_success[host.name] = host.collected_at
+        self._publish(f"{base}/host/{slug(host.name)}/state", host_state(host, host.disks, self._last_success.get(host.name)))
+        for change in changes or []:
+            if change.kind == "missing":
+                # Retained, so the entities keep saying so until the disk is back.
+                self._publish(f"{base}/disk/{slug(change.disk.key)}/state", disk_state(change.disk, missing=True))
         for disk in host.disks:
             override = self.settings.override_for(disk.info)
             unique = self._unique_for(disk)

@@ -27,6 +27,9 @@ thresholds:
   temp_nvme_warn_c: 70
   temp_nvme_crit_c: 80
   use_drive_temp_limit: true
+  # SSDs retire worn blocks normally: a stable count below this is fine,
+  # any increase within a week still warns. Hard disks warn on any.
+  ssd_reallocated_warn_count: 10
 
 # Home Assistant entities. Point this at your broker; in the Home Assistant app
 # the Supervisor provides it automatically and nothing needs to be set here.

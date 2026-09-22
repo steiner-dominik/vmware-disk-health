@@ -267,7 +267,8 @@ def parse_device_list(records: list[Record]) -> list[DiskInfo]:
                 serial=t10_serial(device_id),
                 size_bytes=size_mb * 1024 * 1024 if size_mb else None,
                 kind=kind,
-                protocol="nvme" if is_nvme else "sas" if as_bool(rec.get("issas")) else "ata",
+                # SATA drives behind a SAS HBA report IsSAS too; vendor "ATA" says what they are.
+                protocol="nvme" if is_nvme else "sas" if as_bool(rec.get("issas")) and vendor.upper() != "ATA" else "ata",
                 is_boot=as_bool(rec.get("isbootdevice")),
             )
         )
@@ -281,6 +282,26 @@ def parse_path_list(records: list[Record]) -> dict[str, str]:
         device, adapter = as_str(rec.get("device")), as_str(rec.get("adapter"))
         if device and adapter:
             mapping.setdefault(device, adapter)
+    return mapping
+
+
+def parse_vsan_storage_list(records: list[Record]) -> dict[str, tuple[str, str | None]]:
+    """Device id -> (tier, disk group) from ``esxcli vsan storage list``.
+
+    vSAN OSA disk groups have one cache disk and one or more capacity disks.
+    The group is identified by its cache disk's device id, which is what
+    ``VSAN Disk Group Name`` holds. Disks not used by this host are skipped.
+    """
+    mapping: dict[str, tuple[str, str | None]] = {}
+    for rec in records:
+        device = as_str(rec.get("device")) or as_str(rec.get("_name"))
+        if not device or ("usedbythishost" in rec and not as_bool(rec.get("usedbythishost"))):
+            continue
+        if "iscapacitytier" not in rec:
+            continue
+        tier = "capacity" if as_bool(rec.get("iscapacitytier")) else "cache"
+        group = as_str(rec.get("vsandiskgroupname")) or as_str(rec.get("vsandiskgroupuuid")) or None
+        mapping[device] = (tier, group)
     return mapping
 
 
@@ -337,10 +358,10 @@ def parse_nvme_smart_log(record: Record) -> Reading:
 HOST_WRITES_32MIB_BYTES = 32 * 1024 * 1024
 
 
-def _writes_in_32mib_units(model: str) -> bool:
+def writes_in_32mib_units(model: str) -> bool:
     """Whether Write/Read Sectors TOT Count (ATA attribute 241/242) counts
     32 MiB units instead of sectors, as Intel/Solidigm SATA data-center SSDs
-    (model codes starting ``SSDSC``, e.g. the D3-S4610 ``SSDSC2BB016T7R``) do.
+    (model codes starting ``SSDSC``, e.g. the DC S3520 ``SSDSC2BB016T7R``) do.
 
     Confirmed against a live host: on those drives the raw value is identical
     to Media Wearout Indicator's, which shares the same NAND-write counter --
@@ -386,7 +407,7 @@ def parse_native_smart(rows: list[Record], kind: DiskKind, logical_block_size: i
     if kind is not DiskKind.HDD and (row := by_name.get("mediawearoutindicator")):
         wearout_raw = as_int(row.get("raw"))
         write_raw = as_int(by_name.get("writesectorstotcount", {}).get("raw"))
-        # Some firmwares (the same Intel/Solidigm drives _writes_in_32mib_units
+        # Some firmwares (the same Intel/Solidigm drives writes_in_32mib_units
         # covers) fill this attribute's raw field from the write counter
         # instead of a real wear count; esxcli's Value is then stuck at 100
         # regardless of actual wear -- confirmed against a live host where
@@ -401,7 +422,7 @@ def parse_native_smart(rows: list[Record], kind: DiskKind, logical_block_size: i
     health = as_str(by_name.get("healthstatus", {}).get("value")).upper()
     written = counter("writesectorstotcount")
     read = counter("readsectorstotcount")
-    if _writes_in_32mib_units(model):
+    if writes_in_32mib_units(model):
         unit = HOST_WRITES_32MIB_BYTES
     else:
         unit = logical_block_size or 512

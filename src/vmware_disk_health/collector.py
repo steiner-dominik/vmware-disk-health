@@ -15,9 +15,10 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from . import endurance
 from .config import HostConfig, Settings
 from .evaluate import evaluate
-from .model import DiskInfo, DiskKind, DiskResult, HostResult, Reading
+from .model import DiskInfo, DiskKind, DiskResult, HostResult, Reading, disk_key
 from .parsers import esxcli
 from .parsers.esxcli import Shape
 from .parsers.smartctl import SmartctlError, parse_smartctl
@@ -48,6 +49,7 @@ class HostCollector:
         self.json = False
         self._semaphore = asyncio.Semaphore(PER_HOST_CONCURRENCY)
         self._device_records: dict[str, esxcli.Record] = {}
+        self.excluded: list[str] = []
 
     async def _exec(self, command: str) -> tuple[str, int] | None:
         async with self._semaphore:
@@ -107,7 +109,12 @@ class HostCollector:
     async def discover(self) -> list[DiskInfo]:
         records = await self.esxcli("storage core device list", Shape.BLOCKS, required=True, keep_labels=True)
         self._device_records = {esxcli.as_str(r.get("device")) or esxcli.as_str(r.get("_name")): r for r in records}
-        disks = [d for d in esxcli.parse_device_list(records) if not self.settings.is_excluded(self.host, d)]
+        disks = []
+        for disk in esxcli.parse_device_list(records):
+            if self.settings.is_excluded(self.host, disk):
+                self.excluded.append(disk_key(self.host.name, disk.device_id))
+            else:
+                disks.append(disk)
         capacities = esxcli.parse_capacity_list(await self.esxcli("storage core device capacity list", Shape.TABLE))
         for disk in disks:
             disk.logical_block_size, disk.format_type = capacities.get(disk.device_id, (None, ""))
@@ -116,6 +123,10 @@ class HostCollector:
             paths = esxcli.parse_path_list(await self.esxcli("storage core path list", Shape.BLOCKS))
             for disk in nvme:
                 disk.nvme_adapter = paths.get(disk.device_id)
+        # Fails harmlessly (no such namespace) on hosts without vSAN.
+        vsan = esxcli.parse_vsan_storage_list(await self.esxcli("vsan storage list", Shape.BLOCKS))
+        for disk in disks:
+            disk.vsan_tier, disk.vsan_disk_group = vsan.get(disk.device_id, (None, None))
         return disks
 
     async def nvme_identity(self, disk: DiskInfo) -> Reading | None:
@@ -188,6 +199,10 @@ class HostCollector:
         merged = Reading()
         for reading in readings:
             merged = merged.merge(reading)
+        result.endurance = endurance.rating(disk.model, disk.size_bytes, disk.kind)
+        if merged.life_used_pct is None:
+            # No wear value from the drive itself: estimate it from bytes written.
+            merged.life_used_estimated_pct = endurance.estimated_life_used(merged.written_bytes, result.endurance)
         result.reading = merged
         return result
 
@@ -202,6 +217,7 @@ class HostCollector:
             before, previous = baseline(result.key)
             evaluate(result, self.settings.thresholds_for(result.info), before, previous)
         host_result.disks = list(results)
+        host_result.excluded = self.excluded
         host_result.ok = True
         host_result.duration_s = round(time.time() - started, 2)
         return host_result

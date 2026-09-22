@@ -31,12 +31,18 @@ def print_table(results: list[HostResult]) -> None:
         print(f"\n{host.name} ({host.address}) - {host.esxi_version} - smartctl: {smartctl} - {host.duration_s}s")
         for disk in host.disks:
             r = disk.reading
-            life = "-" if r.life_remaining_pct is None else f"{r.life_remaining_pct:.0f}%"
+            if r.life_remaining_pct is not None:
+                life = f"{r.life_remaining_pct:.0f}%"
+            elif r.life_remaining_estimated_pct is not None:
+                life = f"~{r.life_remaining_estimated_pct:.0f}%"  # estimated from TBW
+            else:
+                life = "-"
+            tier = f"  vSAN {disk.info.vsan_tier}" if disk.info.vsan_tier else ""
             temp = "-" if r.temperature_c is None else f"{r.temperature_c:.0f}°C"
             print(
                 f"  [{disk.status.label:8}] {disk.info.kind.value:4} {disk.info.model[:28]:28} {disk.info.serial[:20]:20} "
                 f"temp {temp:>5}  life {life:>4}  written {_tb(r.written_bytes):>10}  "
-                f"POH {r.power_on_hours if r.power_on_hours is not None else '-':>6}  via {','.join(disk.sources) or '-'}"
+                f"POH {r.power_on_hours if r.power_on_hours is not None else '-':>6}  via {','.join(disk.sources) or '-'}{tier}"
             )
             for finding in disk.findings:
                 print(f"      {finding.severity.label}: {finding.message}")

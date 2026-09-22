@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .model import DiskResult
+from .model import DiskResult, Severity
 
 # (metric suffix, reading field, help text, type)
 DISK_METRICS = (
@@ -20,6 +20,12 @@ DISK_METRICS = (
     ("crc_errors_total", "crc_errors", "Interface CRC errors.", "counter"),
     ("media_errors_total", "media_errors", "Media and data integrity errors (NVMe).", "counter"),
     ("available_spare_percent", "available_spare_pct", "Available spare capacity.", "gauge"),
+    (
+        "life_used_estimated_percent",
+        "life_used_estimated_pct",
+        "Estimated endurance used: data written against the rated TBW, for drives that report no wear.",
+        "gauge",
+    ),
 )
 
 
@@ -31,7 +37,9 @@ def _labels(**labels: str) -> str:
     return "{" + ",".join(f'{k}="{_escape(str(v))}"' for k, v in labels.items()) + "}"
 
 
-def render(hosts: list[dict], disks: list[DiskResult]) -> str:
+def render(hosts: list[dict], disks: list[DiskResult], missing: set[str] | frozenset[str] = frozenset()) -> str:
+    """``missing``: keys of disks absent from their host's latest collection.
+    They report status 1 (unknown) and no values, which would only be stale."""
     lines: list[str] = []
 
     def family(name: str, help_text: str, kind: str) -> None:
@@ -56,9 +64,27 @@ def render(hosts: list[dict], disks: list[DiskResult]) -> str:
 
     family("disk_status", "0 ok, 1 unknown, 2 warning, 3 critical.", "gauge")
     for disk in disks:
-        lines.append(f"vmware_disk_health_disk_status{disk_labels(disk)} {int(disk.status)}")
+        status = Severity.UNKNOWN if disk.key in missing else disk.status
+        lines.append(f"vmware_disk_health_disk_status{disk_labels(disk)} {int(status)}")
+    present = [disk for disk in disks if disk.key not in missing]
+    vsan = [disk for disk in present if disk.info.vsan_tier]
+    if vsan:
+        family("disk_vsan_info", "vSAN role of the disk (tier: cache or capacity); always 1.", "gauge")
+        for disk in vsan:
+            labels = _labels(
+                host=disk.host,
+                device=disk.info.device_id,
+                tier=disk.info.vsan_tier or "",
+                disk_group=disk.info.vsan_disk_group or "",
+            )
+            lines.append(f"vmware_disk_health_disk_vsan_info{labels} 1")
+    rated = [disk for disk in present if disk.endurance]
+    if rated:
+        family("disk_rated_endurance_bytes", "Vendor-rated write endurance (TBW) the disk was matched to.", "gauge")
+        for disk in rated:
+            lines.append(f"vmware_disk_health_disk_rated_endurance_bytes{disk_labels(disk)} {disk.endurance.tbw_bytes}")
     for suffix, field, help_text, kind in DISK_METRICS:
-        values = [(disk, getattr(disk.reading, field)) for disk in disks]
+        values = [(disk, getattr(disk.reading, field)) for disk in present]
         values = [(disk, value) for disk, value in values if value is not None]
         if not values:
             continue

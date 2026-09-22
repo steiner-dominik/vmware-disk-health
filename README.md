@@ -4,8 +4,9 @@ SMART and SSD health monitoring for VMware ESXi hosts: wear, data written,
 temperatures and error counters of every local SATA and NVMe disk, with
 history and alerting. Runs standalone in Docker or as a Home Assistant app.
 
-> **Status:** first release. Collector, history, web UI, JSON API, Prometheus
-> metrics, Home Assistant entities and notifications work. Feedback welcome.
+> **Status:** in use on a homelab (ESXi 8) and a VCF lab (ESXi 9.1, vSAN).
+> Collector, history, web UI, JSON API, Prometheus metrics, Home Assistant
+> entities and notifications work. Feedback welcome.
 
 ## How it works
 
@@ -16,6 +17,7 @@ The app connects to each ESXi host over SSH and runs read-only commands:
 | `esxcli storage core device list` | yes | discovering local disks |
 | `esxcli storage core device smart get` | yes | health, temperature, counters, wear where reported |
 | `esxcli nvme device log smart get` | yes | NVMe health log |
+| `esxcli vsan storage list` | with vSAN | cache/capacity tier and disk group |
 | `smartctl` ([community VIB](https://github.com/bsv9/smartctl-esxi-vib)) | **no** | full ATA attributes, if installed |
 
 smartctl is optional. When it is present it adds the detail ESXi does not
@@ -24,6 +26,13 @@ it is not, ESXi 8's built-in SMART data still provides health, temperature,
 power-on hours, sector counters and bytes written, plus wear where the drive
 reports it to ESXi (a Crucial MX500, for example, does not).
 smartctl cannot read NVMe devices on ESXi, so NVMe always uses `esxcli`.
+
+For drives that report no wear value to ESXi (a Crucial MX500, or the
+Intel/Solidigm DC SATA SSDs whose wear attribute esxcli shows stuck at 100),
+the app **estimates** remaining life from data written against the vendor's
+rated endurance (TBW, see `endurance.py`). It is always shown as an estimate,
+can raise a warning but never a critical status, and needs occasional upkeep of
+the small rating table.
 
 esxcli output is read as JSON through `esxcli --debug --formatter=json` where
 the host supports it. The flag is undocumented, so every command falls back to

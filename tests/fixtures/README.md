@@ -7,10 +7,14 @@ files come from `esxcli --debug --formatter=json`.
 - `sa-esxi-01/` — ESXi 8.0.3 build 25205845, captured 2026-09-15.
 - `sc-esxi-01/` — ESXi 8.0.3 build 25595708, captured 2026-09-15.
 - `esx11-vcf/` — ESXi 9.1.0 Update 1 build 25557999, captured 2026-09-22. One
-  Solidigm/Intel D3-S4610 SATA SSD (`SSDSC2BB016T7R`) behind a SAS HBA, no
+  Intel DC S3520 SATA SSD (`SSDSC2BB016T7R`) behind a SAS HBA, no
   smartctl: the drive reports its own WWN so esxcli names it `naa.*` instead
   of a `t10.ATA_____<model><serial>` id, and Write/Read Sectors TOT Count
   (ATA attribute 241/242) counts 32 MiB units instead of sectors.
+  `esxcli*_vsan_storage_list.*` are **not** captures: they are reconstructed
+  from the documented layout of `esxcli vsan storage list` for the lab's
+  disk groups (one 400 GB cache disk, 1.6 TB capacity disks), with made-up
+  UUIDs. Replace them with real captures when convenient.
 
 The smartctl JSON files and `esxcli_nvme_device_get_*` are trimmed: bulky
 entries the parsers never read (`ata_log_directory`, the SCT temperature

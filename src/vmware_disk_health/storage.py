@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
+import functools
 import json
+import logging
 import sqlite3
+import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .model import NUMERIC_FIELDS, DiskResult, HostResult, Reading, Severity
+from .model import NUMERIC_FIELDS, DiskResult, Finding, HostResult, Reading, Severity
+from .parsers.esxcli import HOST_WRITES_32MIB_BYTES, writes_in_32mib_units
 
-SCHEMA_VERSION = 1
-FLOAT_FIELDS = {"temperature_c", "life_used_pct", "available_spare_pct"}
+log = logging.getLogger(__name__)
+
+SCHEMA_VERSION = 2
+FLOAT_FIELDS = {"temperature_c", "life_used_pct", "available_spare_pct", "life_used_estimated_pct"}
 
 _SAMPLE_COLUMNS = ", ".join(f"{field} REAL" for field in NUMERIC_FIELDS)
 
@@ -73,30 +79,89 @@ class StatusChange:
     disk: DiskResult
     old: Severity | None
     new: Severity
+    # "status": the evaluation changed; "missing": the host stopped reporting
+    # the disk; "returned": a missing disk is reported again.
+    kind: str = "status"
+
+
+def _locked(method):
+    """One connection is shared by the scheduler and the API's worker threads;
+    without serializing, one thread's commit could end another's transaction."""
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class Storage:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.RLock()
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.executescript(SCHEMA)
-        columns = {row["name"] for row in self.db.execute("PRAGMA table_info(hosts)")}
-        if "esxcli_json" not in columns:  # databases created by 0.1.0 during development
-            self.db.execute("ALTER TABLE hosts ADD COLUMN esxcli_json INTEGER")
-        if "findings_json" not in {row["name"] for row in self.db.execute("PRAGMA table_info(events)")}:
-            self.db.execute("ALTER TABLE events ADD COLUMN findings_json TEXT")
+        self._add_columns("hosts", {"esxcli_json": "INTEGER"})  # databases created by 0.1.0 during development
+        self._add_columns("events", {"findings_json": "TEXT"})
+        for table in ("samples", "daily"):
+            self._add_columns(table, {field: "REAL" for field in NUMERIC_FIELDS})
+        version = self.db.execute("PRAGMA user_version").fetchone()[0]
+        if version < 2:
+            self._repair_32mib_history()
         self.db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         self.db.commit()
 
+    def _add_columns(self, table: str, columns: dict[str, str]) -> None:
+        existing = {row["name"] for row in self.db.execute(f"PRAGMA table_info({table})")}
+        for name, kind in columns.items():
+            if name not in existing:
+                self.db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
+
+    def _repair_32mib_history(self) -> None:
+        """Rescale history recorded before 26.09.22.1 for Intel/Solidigm SATA SSDs.
+
+        Those releases read the drives' 32 MiB write/read counters as sectors,
+        so older samples are 65536 times too small and the first sample after
+        the fix looked like petabytes written in an hour. They also stored the
+        wear value that 26.09.22.2 found to be meaningless as 0 % used.
+        A sample is only rescaled if the result fits below the disk's current
+        counter, so values already in bytes are never touched.
+        """
+        factor = HOST_WRITES_32MIB_BYTES // 512
+        repaired = 0
+        for row in self.db.execute("SELECT key, latest_json FROM disks").fetchall():
+            disk = DiskResult.model_validate_json(row["latest_json"])
+            if not writes_in_32mib_units(disk.info.model):
+                continue
+            for field in ("written_bytes", "read_bytes"):
+                current = getattr(disk.reading, field)
+                if not current:
+                    continue
+                for table in ("samples", "daily"):
+                    repaired += self.db.execute(
+                        f"UPDATE {table} SET {field} = {field} * ? WHERE disk_key = ? AND {field} > 0 "
+                        f"AND {field} * ? <= ? AND {field} * ? >= ?",
+                        (factor, row["key"], factor, current * 1.01, factor, current * 0.2),
+                    ).rowcount
+            if disk.reading.life_used_pct is None:
+                for table in ("samples", "daily"):
+                    self.db.execute(f"UPDATE {table} SET life_used_pct = NULL WHERE disk_key = ?", (row["key"],))
+        if repaired:
+            log.info("rescaled %d history values of Intel/Solidigm SSDs recorded in the wrong unit", repaired)
+
+    @_locked
     def close(self) -> None:
         self.db.close()
 
+    @_locked
     def previous_reading(self, disk_key: str) -> Reading | None:
         row = self.db.execute("SELECT latest_json FROM disks WHERE key = ?", (disk_key,)).fetchone()
         return DiskResult.model_validate_json(row["latest_json"]).reading if row else None
 
+    @_locked
     def baseline_reading(self, disk_key: str, since: float) -> Reading | None:
         """The oldest sample at or after ``since``: what "increasing" is measured against.
 
@@ -110,18 +175,23 @@ class Storage:
             return self.previous_reading(disk_key)
         return _reading_from_row(row)
 
+    @_locked
     def readings_before(self, disk_key: str, since: float) -> tuple[Reading | None, Reading | None]:
         """The baseline from ``since`` and the reading from the last poll."""
         return self.baseline_reading(disk_key, since), self.previous_reading(disk_key)
 
+    @_locked
     def disk(self, disk_key: str) -> DiskResult | None:
         row = self.db.execute("SELECT latest_json FROM disks WHERE key = ?", (disk_key,)).fetchone()
         return DiskResult.model_validate_json(row["latest_json"]) if row else None
 
+    @_locked
     def save(self, host: HostResult) -> list[StatusChange]:
         """Persist one host's collection run and return disks whose status changed."""
         now = host.collected_at or time.time()
         changes: list[StatusChange] = []
+        stored = self.db.execute("SELECT last_success FROM hosts WHERE name = ?", (host.name,)).fetchone()
+        previous_success = stored["last_success"] if stored else None
         with self.db:
             self.db.execute(
                 """INSERT INTO hosts (name, address, last_attempt, last_success, last_error, esxi_version, smartctl_path,
@@ -150,9 +220,30 @@ class Storage:
             )
             if not host.ok:
                 return changes
+            known = {
+                row["key"]: row
+                for row in self.db.execute("SELECT key, status, last_seen, latest_json FROM disks WHERE host = ?", (host.name,))
+            }
+            reported = {disk.key for disk in host.disks}
+            for key, row in known.items():
+                # Present in the previous successful collection, gone now: a
+                # dead drive often simply drops off the bus.
+                if key in reported or key in host.excluded or previous_success is None or row["last_seen"] < previous_success:
+                    continue
+                gone = DiskResult.model_validate_json(row["latest_json"])
+                self._event(
+                    now, gone, Severity(row["status"]), Severity.UNKNOWN, "disk_missing", "disk no longer reported by the host"
+                )
+                changes.append(StatusChange(gone, Severity(row["status"]), Severity.UNKNOWN, "missing"))
             for disk in host.disks:
-                row = self.db.execute("SELECT status FROM disks WHERE key = ?", (disk.key,)).fetchone()
+                row = (
+                    known.get(disk.key)
+                    or self.db.execute("SELECT status, last_seen FROM disks WHERE key = ?", (disk.key,)).fetchone()
+                )
                 old = Severity(row["status"]) if row else None
+                if row and previous_success and row["last_seen"] < previous_success:
+                    self._event(now, disk, Severity.UNKNOWN, disk.status, "disk_returned", "disk reported again")
+                    changes.append(StatusChange(disk, Severity.UNKNOWN, disk.status, "returned"))
                 self.db.execute(
                     """INSERT INTO disks (key, host, status, first_seen, last_seen, latest_json) VALUES (?, ?, ?, ?, ?, ?)
                        ON CONFLICT(key) DO UPDATE SET host = excluded.host, status = excluded.status,
@@ -177,16 +268,31 @@ class Storage:
                     changes.append(StatusChange(disk, old, disk.status))
         return changes
 
+    def _event(self, now: float, disk: DiskResult, old: Severity, new: Severity, code: str, message: str) -> None:
+        findings = json.dumps([Finding(code=code, severity=Severity.WARNING, message=message).model_dump(mode="json")])
+        self.db.execute(
+            "INSERT INTO events (ts, disk_key, host, old_status, new_status, summary, findings_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (now, disk.key, disk.host, int(old), int(new), message, findings),
+        )
+
+    @_locked
     def hosts(self) -> list[dict]:
         return [dict(row) for row in self.db.execute("SELECT * FROM hosts ORDER BY name")]
 
+    @_locked
     def disks(self) -> list[DiskResult]:
         rows = self.db.execute("SELECT latest_json FROM disks ORDER BY host, key")
         return [DiskResult.model_validate_json(row["latest_json"]) for row in rows]
 
-    def last_seen(self) -> dict[str, float]:
-        return {row["key"]: row["last_seen"] for row in self.db.execute("SELECT key, last_seen FROM disks")}
+    @_locked
+    def last_seen(self, disk_key: str | None = None) -> dict[str, float]:
+        if disk_key is not None:
+            rows = self.db.execute("SELECT key, last_seen FROM disks WHERE key = ?", (disk_key,))
+        else:
+            rows = self.db.execute("SELECT key, last_seen FROM disks")
+        return {row["key"]: row["last_seen"] for row in rows}
 
+    @_locked
     def history(self, disk_key: str, since: float = 0) -> list[dict]:
         """Daily rollups followed by raw samples, oldest first."""
         fields = ", ".join(NUMERIC_FIELDS)
@@ -199,12 +305,14 @@ class Storage:
         )
         return [dict(row) for row in rows]
 
+    @_locked
     def events(self, limit: int = 100) -> list[dict]:
         rows = [dict(row) for row in self.db.execute("SELECT * FROM events ORDER BY ts DESC, id DESC LIMIT ?", (limit,))]
         for row in rows:
             row["findings"] = json.loads(row.pop("findings_json") or "[]")
         return rows
 
+    @_locked
     def rollup(self, retention_days: int, now: float | None = None) -> int:
         """Fold raw samples older than the retention into one row per disk and day."""
         # Aligned to UTC midnight so a day is never rolled up half at a time.

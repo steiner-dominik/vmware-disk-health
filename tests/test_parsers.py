@@ -209,7 +209,8 @@ def test_device_list_naa_id_has_no_serial():
     assert disk.model == "SSDSC2BB016T7R"
     assert disk.serial == ""
     assert disk.kind is DiskKind.SSD
-    assert disk.protocol == "sas"
+    # A SATA drive behind a SAS HBA: ESXi says IsSAS, the vendor field says ATA.
+    assert disk.protocol == "ata"
 
 
 def test_device_list_keep_labels_json_equals_text():
