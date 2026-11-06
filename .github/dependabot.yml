@@ -1,0 +1,36 @@
+# Automated dependency updates: Dependabot opens a PR when a newer version is
+# available; CI runs the tests and an image build on each. Grouped per
+# ecosystem, with a short cooldown for fresh releases. Security updates bypass
+# both and arrive immediately.
+version: 2
+updates:
+  # pyproject.toml + uv.lock (the tests run against uv.lock)
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 5
+      semver-major-days: 14
+    groups:
+      python:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 5
+    groups:
+      github-actions:
+        patterns: ["*"]
+  # python:*-slim base image
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 5
