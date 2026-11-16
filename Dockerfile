@@ -1,12 +1,12 @@
 # Multi-arch image for the standalone deployment and the Home Assistant app.
-FROM python:3.13-slim AS build
+FROM python:3.15-slim AS build
 WORKDIR /src
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 RUN pip install --no-cache-dir --upgrade pip \
     && pip wheel --no-cache-dir --wheel-dir /wheels .
 
-FROM python:3.13-slim
+FROM python:3.15-slim
 LABEL org.opencontainers.image.title="VMware Disk Health" \
       org.opencontainers.image.description="SMART and SSD health monitoring for VMware ESXi hosts" \
       org.opencontainers.image.source="https://github.com/steiner-dominik/vmware-disk-health" \
